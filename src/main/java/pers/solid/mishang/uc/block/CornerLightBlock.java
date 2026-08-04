@@ -1,29 +1,36 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.*;
-import net.minecraft.block.enums.BlockHalf;
-import net.minecraft.data.client.*;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.data.server.recipe.ShapelessRecipeJsonBuilder;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.registry.Registries;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.function.BooleanBiFunction;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.WorldAccess;
-import net.minecraft.world.WorldView;
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.properties.Half;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.VariantSettings;
+import pers.solid.mishang.uc.data.stubs.Model;
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.ShapelessRecipeBuilder;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.shapes.BooleanOp;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.MishangUtils;
@@ -32,12 +39,16 @@ import pers.solid.mishang.uc.data.MishangucTextureKeys;
 
 import java.util.Map;
 
-import static net.minecraft.fluid.Fluids.WATER;
+import static net.minecraft.world.level.material.Fluids.WATER;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.level.material.Fluids;
+import com.mojang.math.Axis;
 
-public class CornerLightBlock extends HorizontalFacingBlock
-    implements Waterloggable, LightConnectable, MishangucBlock {
-  private static final EnumProperty<BlockHalf> BLOCK_HALF = Properties.BLOCK_HALF;
-  private static final BooleanProperty WATERLOGGED = Properties.WATERLOGGED;
+public class CornerLightBlock extends HorizontalDirectionalBlock
+    implements SimpleWaterloggedBlock, LightConnectable, MishangucBlock {
+  private static final EnumProperty<Half> BLOCK_HALF = BlockStateProperties.HALF;
+  private static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
   private static final Map<Direction, VoxelShape> SHAPE_PER_DIRECTION_WHEN_BOTTOM = MishangUtils.createDirectionToUnionShape(
       MishangUtils.createHorizontalDirectionToShape(4, 0, 0, 12, 1, 16),
       MishangUtils.createHorizontalDirectionToShape(4, 0, 0, 12, 16, 1));
@@ -46,93 +57,93 @@ public class CornerLightBlock extends HorizontalFacingBlock
       MishangUtils.createHorizontalDirectionToShape(4, 0, 0, 12, 16, 1));
   public final String lightColor;
 
-  public CornerLightBlock(String lightColor, Settings settings) {
+  public CornerLightBlock(String lightColor, Properties settings) {
     super(settings);
     this.lightColor = lightColor;
-    this.setDefaultState(getDefaultState()
-        .with(WATERLOGGED, false)
-        .with(BLOCK_HALF, BlockHalf.BOTTOM));
+    this.registerDefaultState(defaultBlockState()
+        .setValue(WATERLOGGED, false)
+        .setValue(BLOCK_HALF, Half.BOTTOM));
   }
 
   @Nullable
   @Override
-  public BlockState getPlacementState(ItemPlacementContext ctx) {
-    final BlockState placementState = super.getPlacementState(ctx);
+  public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+    final BlockState placementState = super.getStateForPlacement(ctx);
     if (placementState == null) {
       return null;
     }
-    final Direction side = ctx.getSide();
+    final Direction side = ctx.getClickedFace();
     return placementState
-        .with(WATERLOGGED, ctx.getWorld().getFluidState(ctx.getBlockPos()).getFluid() == WATER)
-        .with(BLOCK_HALF,
-            side == Direction.DOWN || ctx.getHitPos().y - ctx.getBlockPos().getY() > 0.5
-                ? BlockHalf.TOP
-                : BlockHalf.BOTTOM)
-        .with(FACING,
-            Direction.Type.HORIZONTAL.test(side) ? side : ctx.getHorizontalPlayerFacing().getOpposite());
+        .setValue(WATERLOGGED, ctx.getLevel().getFluidState(ctx.getClickedPos()).getType() == WATER)
+        .setValue(BLOCK_HALF,
+            side == Direction.DOWN || ctx.getClickLocation().y - ctx.getClickedPos().getY() > 0.5
+                ? Half.TOP
+                : Half.BOTTOM)
+        .setValue(FACING,
+            Direction.Plane.HORIZONTAL.test(side) ? side : ctx.getHorizontalDirection().getOpposite());
   }
 
   @Override
-  protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-    super.appendProperties(builder);
+  protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    super.createBlockStateDefinition(builder);
     builder.add(FACING, BLOCK_HALF, WATERLOGGED);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public boolean canPlaceAt(BlockState state, WorldView world, BlockPos pos) {
-    final Direction facing = state.get(FACING);
+  public boolean canSurvive(BlockState state, LevelReader world, BlockPos pos) {
+    final Direction facing = state.getValue(FACING);
     final Direction backDirection = facing.getOpposite();
-    final BlockPos backPos = pos.offset(backDirection);
-    final VoxelShape centerShape = Block.createCuboidShape(7, 7, 7, 9, 9, 9);
+    final BlockPos backPos = pos.relative(backDirection);
+    final VoxelShape centerShape = Block.box(7, 7, 7, 9, 9, 9);
     final BlockState backState = world.getBlockState(backPos);
-    return !VoxelShapes.matchesAnywhere(backState.getSidesShape(world, backPos).getFace(facing), centerShape, BooleanBiFunction.ONLY_SECOND) || !VoxelShapes.matchesAnywhere(backState.getCollisionShape(world, backPos).getFace(facing), centerShape, BooleanBiFunction.ONLY_SECOND);
+    return !Shapes.joinIsNotEmpty(backState.getBlockSupportShape(world, backPos).getFaceShape(facing), centerShape, BooleanOp.ONLY_SECOND) || !Shapes.joinIsNotEmpty(backState.getCollisionShape(world, backPos).getFaceShape(facing), centerShape, BooleanOp.ONLY_SECOND);
   }
 
   @SuppressWarnings("deprecation")
   @Override
   public FluidState getFluidState(BlockState state) {
-    return state.get(WATERLOGGED) ? WATER.getStill(false) : super.getFluidState(state);
+    return state.getValue(WATERLOGGED) ? WATER.getSource(false) : super.getFluidState(state);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-    if (state.get(WATERLOGGED)) {
-      world.scheduleFluidTick(pos, WATER, WATER.getTickRate(world));
+  public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+    if (state.getValue(WATERLOGGED)) {
+      world.scheduleTick(pos, WATER, WATER.getTickDelay(world));
     }
 
-    return super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos);
+    return super.updateShape(state, direction, neighborState, world, pos, neighborPos);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-    return switch (state.get(BLOCK_HALF)) {
-      case BOTTOM -> SHAPE_PER_DIRECTION_WHEN_BOTTOM.get(state.get(FACING));
-      case TOP -> SHAPE_PER_DIRECTION_WHEN_TOP.get(state.get(FACING));
+  public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+    return switch (state.getValue(BLOCK_HALF)) {
+      case BOTTOM -> SHAPE_PER_DIRECTION_WHEN_BOTTOM.get(state.getValue(FACING));
+      case TOP -> SHAPE_PER_DIRECTION_WHEN_TOP.get(state.getValue(FACING));
     };
   }
 
   @Override
   public boolean isConnectedIn(BlockState blockState, Direction facing, Direction direction) {
-    final Direction facingProperty = blockState.get(FACING);
-    final BlockHalf blockHalf = blockState.get(BLOCK_HALF);
+    final Direction facingProperty = blockState.getValue(FACING);
+    final Half blockHalf = blockState.getValue(BLOCK_HALF);
 
     return switch (facing) {
-      case UP -> blockHalf == BlockHalf.BOTTOM && direction.getAxis() == facingProperty.getAxis();
-      case DOWN -> blockHalf == BlockHalf.TOP && direction.getAxis() == facingProperty.getAxis();
+      case UP -> blockHalf == Half.BOTTOM && direction.getAxis() == facingProperty.getAxis();
+      case DOWN -> blockHalf == Half.TOP && direction.getAxis() == facingProperty.getAxis();
       default -> facing == facingProperty && direction.getAxis() == Direction.Axis.Y;
     };
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public void prepare(BlockState state, WorldAccess world, BlockPos pos, int flags, int maxUpdateDepth) {
-    super.prepare(state, world, pos, flags, maxUpdateDepth);
-    final Direction facing = state.get(FACING);
+  public void updateIndirectNeighbourShapes(BlockState state, LevelAccessor world, BlockPos pos, int flags, int maxUpdateDepth) {
+    super.updateIndirectNeighbourShapes(state, world, pos, flags, maxUpdateDepth);
+    final Direction facing = state.getValue(FACING);
     final Direction facingVertical =
-        state.get(BLOCK_HALF) == BlockHalf.TOP ? Direction.DOWN : Direction.UP;
+        state.getValue(BLOCK_HALF) == Half.TOP ? Direction.DOWN : Direction.UP;
     prepareConnection(state, world, pos, flags, maxUpdateDepth, facing);
     prepareConnection(state, world, pos, flags, maxUpdateDepth, facingVertical);
   }
@@ -140,9 +151,9 @@ public class CornerLightBlock extends HorizontalFacingBlock
   @Override
   public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
     final TextureMap textures = TextureMap.of(MishangucTextureKeys.LIGHT, MishangucModels.texture(lightColor + "_light"));
-    final Identifier modelId = getModelType().upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation modelId = getModelType().upload(this, textures, blockStateModelGenerator.modelCollector);
     blockStateModelGenerator.blockStateCollector.accept(VariantsBlockStateSupplier.create(this, BlockStateVariant.create().put(VariantSettings.MODEL, modelId)).coordinate(BlockStateVariantMap.create(BLOCK_HALF, FACING).register((blockHalf, direction) -> {
-      if (blockHalf == BlockHalf.BOTTOM) {
+      if (blockHalf == Half.BOTTOM) {
         return BlockStateVariant.create().put(MishangUtils.DIRECTION_Y_VARIANT, direction);
       } else {
         return BlockStateVariant.create().put(MishangUtils.DIRECTION_Y_VARIANT, direction.getOpposite()).put(VariantSettings.X, VariantSettings.Rotation.R180);
@@ -152,7 +163,7 @@ public class CornerLightBlock extends HorizontalFacingBlock
   }
 
   public Model getModelType() {
-    final Identifier identifier = Registries.BLOCK.getId(this);
+    final ResourceLocation identifier = BuiltInRegistries.BLOCK.getKey(this);
     String path = identifier.getPath();
     final int i = lightColor.length();
     try {
@@ -165,16 +176,16 @@ public class CornerLightBlock extends HorizontalFacingBlock
   }
 
   @Override
-  public CraftingRecipeJsonBuilder getCraftingRecipe() {
-    final Identifier itemId = Registries.ITEM.getId(asItem());
-    final Identifier wallId = new Identifier(itemId.getNamespace(), itemId.getPath().replace("_corner_", "_wall_"));
+  public RecipeBuilder getCraftingRecipe() {
+    final ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(asItem());
+    final ResourceLocation wallId = new ResourceLocation(itemId.getNamespace(), itemId.getPath().replace("_corner_", "_wall_"));
     if (wallId.equals(itemId)) {
       throw new IllegalStateException("Can't generate recipes: can't find the id of corresponding wall light block for " + this);
     }
-    final @NotNull Item wall = Registries.ITEM.getOrEmpty(wallId).orElseThrow(() -> new IllegalArgumentException(String.format("Can't generate recipes: can't find the corresponding wall light block with id [%s] for [%s]", wallId, itemId)));
-    return ShapelessRecipeJsonBuilder.create(RecipeCategory.DECORATIONS, this, 1)
-        .input(wall)
-        .input(wall)
-        .criterion(RecipeProvider.hasItem(wall), RecipeProvider.conditionsFromItem(wall));
+    final @NotNull Item wall = BuiltInRegistries.ITEM.getOptional(wallId).orElseThrow(() -> new IllegalArgumentException(String.format("Can't generate recipes: can't find the corresponding wall light block with id [%s] for [%s]", wallId, itemId)));
+    return ShapelessRecipeBuilder.shapeless(RecipeCategory.DECORATIONS, this, 1)
+        .requires(wall)
+        .requires(wall)
+        .unlockedBy(FabricRecipeProvider.getHasName(wall), FabricRecipeProvider.has(wall));
   }
 }

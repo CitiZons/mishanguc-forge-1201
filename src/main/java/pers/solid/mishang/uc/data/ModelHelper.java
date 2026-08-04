@@ -4,9 +4,14 @@ import com.google.common.collect.Lists;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import net.minecraft.block.Block;
-import net.minecraft.data.client.*;
-import net.minecraft.util.Identifier;
+import net.minecraft.world.level.block.Block;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.TextureKey;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import pers.solid.mishang.uc.data.stubs.BlockStateSupplier;
+import pers.solid.mishang.uc.data.stubs.VariantSettings;
+import pers.solid.mishang.uc.data.stubs.Model;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.MishangucProperties;
@@ -26,12 +31,12 @@ public final class ModelHelper {
    * @return 方块状态。
    */
   @NotNull
-  public static BlockStateSupplier stateForHorizontalCornerFacingBlock(@NotNull Block block, @NotNull Identifier modelIdentifier, boolean uvlock) {
+  public static BlockStateSupplier stateForHorizontalCornerFacingBlock(@NotNull Block block, @NotNull ResourceLocation modelIdentifier, boolean uvlock) {
     return VariantsBlockStateSupplier.create(block).coordinate(BlockStateVariantMap.create(MishangucProperties.HORIZONTAL_CORNER_FACING).register(direction -> BlockStateVariant.create().put(VariantSettings.MODEL, modelIdentifier).put(MishangUtils.INT_Y_VARIANT, direction.asRotation() - 45).put(VariantSettings.UVLOCK, uvlock)));
   }
 
   public static BlockStateSupplier composeStateForSlab(@NotNull BlockStateSupplier stateForFull) {
-    final JsonObject variants = stateForFull.get().getAsJsonObject().getAsJsonObject("variants");
+    final JsonObject variants = stateForFull.getValue().getAsJsonObject().getAsJsonObject("variants");
     final JsonObject slabVariant = new JsonObject();
     for (Map.Entry<String, JsonElement> entry : variants.entrySet()) {
       final String key = entry.getKey();
@@ -42,14 +47,14 @@ public final class ModelHelper {
         models = Collections.singletonList(entry.getValue().getAsJsonObject());
       }
       for (JsonObject blockModel : models) {
-        final Identifier modelId = new Identifier(blockModel.get("model").getAsString());
+        final ResourceLocation modelId = new ResourceLocation(blockModel.get("model").getAsString());
         JsonObject bottomModel = blockModel.deepCopy();
         bottomModel.addProperty("model", modelId.toString());
         slabVariant.add(
             key.isEmpty() ? "type=bottom" : key + ",type=bottom",
             bottomModel);
         JsonObject topModel = blockModel.deepCopy();
-        topModel.addProperty("model", modelId.withSuffixedPath("_top").toString());
+        topModel.addProperty("model", modelId.withSuffix("_top").toString());
         slabVariant.add(
             key.isEmpty() ? "type=top" : key + ",type=top",
             topModel);
@@ -75,7 +80,7 @@ public final class ModelHelper {
     };
   }
 
-  public static Identifier getTextureOf(Block block) {
+  public static ResourceLocation getTextureOf(Block block) {
     if (block instanceof MishangucBlock mishangucBlock) {
       return mishangucBlock.getTexture(TextureKey.TEXTURE);
     } else {

@@ -1,18 +1,29 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.PaneBlock;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.client.*;
-import net.minecraft.data.server.loottable.BlockLootTableGenerator;
-import net.minecraft.item.ItemStack;
-import net.minecraft.loot.LootTable;
-import net.minecraft.state.property.Properties;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.BlockView;
+import pers.solid.mishang.uc.data.stubs.FabricBlockLootTableProvider;
+
+import pers.solid.mishang.uc.data.stubs.When;
+
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.IronBarsBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.item.TooltipFlag;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.TextureKey;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.BlockStateSupplier;
+import pers.solid.mishang.uc.data.stubs.VariantSettings;
+import pers.solid.mishang.uc.data.stubs.Model;
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import net.minecraft.data.loot.BlockLootSubProvider;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.BlockGetter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.blockentity.SimpleColoredBlockEntity;
@@ -20,82 +31,82 @@ import pers.solid.mishang.uc.data.MishangucModels;
 
 import java.util.List;
 
-public class ColoredGlassPaneBlock extends PaneBlock implements ColoredBlock {
-  private final Identifier paneTexture;
-  private final Identifier edgeTexture;
+public class ColoredGlassPaneBlock extends IronBarsBlock implements ColoredBlock {
+  private final ResourceLocation paneTexture;
+  private final ResourceLocation edgeTexture;
 
-  public ColoredGlassPaneBlock(Identifier paneTexture, Identifier edgeTexture, Settings settings) {
+  public ColoredGlassPaneBlock(ResourceLocation paneTexture, ResourceLocation edgeTexture, Properties settings) {
     super(settings);
     this.paneTexture = paneTexture;
     this.edgeTexture = edgeTexture;
   }
 
   @Override
-  public ItemStack getPickStack(BlockView world, BlockPos pos, BlockState state) {
-    return getColoredPickStack(world, pos, state, super::getPickStack);
+  public ItemStack getCloneItemStack(BlockGetter world, BlockPos pos, BlockState state) {
+    return getColoredPickStack(world, pos, state, super::getCloneItemStack);
   }
 
   @Override
-  public void appendTooltip(ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
-    super.appendTooltip(stack, world, tooltip, options);
+  public void appendHoverText(ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
+    super.appendHoverText(stack, world, tooltip, options);
     ColoredBlock.appendColorTooltip(stack, tooltip);
   }
 
   @NotNull
   @Override
-  public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+  public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
     return new SimpleColoredBlockEntity(pos, state);
   }
 
   @Override
   public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
     TextureMap textures = TextureMap.of(TextureKey.PANE, paneTexture).put(TextureKey.EDGE, edgeTexture);
-    final Identifier postId = MishangucModels.TEMPLATE_COLORED_GLASS_PANE_POST.upload(this, textures, blockStateModelGenerator.modelCollector);
-    final Identifier sideId = MishangucModels.TEMPLATE_COLORED_GLASS_PANE_SIDE.upload(this, textures, blockStateModelGenerator.modelCollector);
-    final Identifier SideAltId = MishangucModels.TEMPLATE_COLORED_GLASS_PANE_SIDE_ALT.upload(this, textures, blockStateModelGenerator.modelCollector);
-    final Identifier nosideId = MishangucModels.TEMPLATE_COLORED_GLASS_PANE_NOSIDE.upload(this, textures, blockStateModelGenerator.modelCollector);
-    final Identifier nosideAltId = MishangucModels.TEMPLATE_COLORED_GLASS_PANE_NOSIDE_ALT.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation postId = MishangucModels.TEMPLATE_COLORED_GLASS_PANE_POST.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation sideId = MishangucModels.TEMPLATE_COLORED_GLASS_PANE_SIDE.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation SideAltId = MishangucModels.TEMPLATE_COLORED_GLASS_PANE_SIDE_ALT.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation nosideId = MishangucModels.TEMPLATE_COLORED_GLASS_PANE_NOSIDE.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation nosideAltId = MishangucModels.TEMPLATE_COLORED_GLASS_PANE_NOSIDE_ALT.upload(this, textures, blockStateModelGenerator.modelCollector);
 
     blockStateModelGenerator.blockStateCollector.accept(createBlockStates(postId, sideId, SideAltId, nosideId, nosideAltId));
     Models.GENERATED.upload(ModelIds.getItemModelId(asItem()), TextureMap.layer0(paneTexture), blockStateModelGenerator.modelCollector);
   }
 
-  public @NotNull BlockStateSupplier createBlockStates(Identifier postId, Identifier sideId, Identifier sideAltId, Identifier nosideId, Identifier nosideAltId) {
+  public @NotNull BlockStateSupplier createBlockStates(ResourceLocation postId, ResourceLocation sideId, ResourceLocation sideAltId, ResourceLocation nosideId, ResourceLocation nosideAltId) {
     return MultipartBlockStateSupplier.create(this)
-        .with(BlockStateVariant.create()
+        .setValue(BlockStateVariant.create()
             .put(VariantSettings.MODEL, postId))
-        .with(When.create().set(Properties.NORTH, true),
+        .setValue(When.create().set(BlockStateProperties.NORTH, true),
             BlockStateVariant.create()
                 .put(VariantSettings.MODEL, sideId))
-        .with(When.create().set(Properties.EAST, true),
+        .setValue(When.create().set(BlockStateProperties.EAST, true),
             BlockStateVariant.create()
                 .put(VariantSettings.MODEL, sideId)
                 .put(VariantSettings.Y, VariantSettings.Rotation.R90))
-        .with(When.create().set(Properties.SOUTH, true),
+        .setValue(When.create().set(BlockStateProperties.SOUTH, true),
             BlockStateVariant.create()
                 .put(VariantSettings.MODEL, sideAltId))
-        .with(When.create().set(Properties.WEST, true),
+        .setValue(When.create().set(BlockStateProperties.WEST, true),
             BlockStateVariant.create()
                 .put(VariantSettings.MODEL, sideAltId)
                 .put(VariantSettings.Y, VariantSettings.Rotation.R90))
-        .with(When.create().set(Properties.NORTH, false),
+        .setValue(When.create().set(BlockStateProperties.NORTH, false),
             BlockStateVariant.create()
                 .put(VariantSettings.MODEL, nosideId))
-        .with(When.create().set(Properties.EAST, false),
+        .setValue(When.create().set(BlockStateProperties.EAST, false),
             BlockStateVariant.create()
                 .put(VariantSettings.MODEL, nosideAltId))
-        .with(When.create().set(Properties.SOUTH, false),
+        .setValue(When.create().set(BlockStateProperties.SOUTH, false),
             BlockStateVariant.create()
                 .put(VariantSettings.MODEL, nosideAltId)
                 .put(VariantSettings.Y, VariantSettings.Rotation.R90))
-        .with(When.create().set(Properties.WEST, false),
+        .setValue(When.create().set(BlockStateProperties.WEST, false),
             BlockStateVariant.create()
                 .put(VariantSettings.MODEL, nosideId)
                 .put(VariantSettings.Y, VariantSettings.Rotation.R270));
   }
 
   @Override
-  public LootTable.@NotNull Builder getLootTable(BlockLootTableGenerator blockLootTableGenerator) {
-    return BlockLootTableGenerator.dropsWithSilkTouch(this).apply(COPY_COLOR_LOOT_FUNCTION);
+  public LootTable.@NotNull Builder getLootTable(FabricBlockLootTableProvider blockLootTableGenerator) {
+    return FabricBlockLootTableProvider.createSilkTouchOnlyTable(this).apply(COPY_COLOR_LOOT_FUNCTION);
   }
 }

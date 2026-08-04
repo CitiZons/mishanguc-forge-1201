@@ -1,7 +1,7 @@
 package pers.solid.mishang.uc.util;
 
-import net.minecraft.block.Block;
-import net.minecraft.util.DyeColor;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.item.DyeColor;
 import org.apache.commons.lang3.Validate;
 
 import java.util.*;

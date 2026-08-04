@@ -406,7 +406,6 @@ public final class RoadBlocks extends MishangucBlocks {
   @Cutout
   public static final RoadWithCrossLine.Impl ROAD_WITH_YELLOW_CROSS_LINE = new RoadWithCrossLine.Impl(YELLOW_ROAD_SETTINGS, LineColor.YELLOW);
 
-
   /**
    * <h2>自动路块</h2>
    * <p>
@@ -440,7 +439,7 @@ public final class RoadBlocks extends MishangucBlocks {
         case DOUBLE -> ROAD_WITH_YELLOW_DOUBLE_LINE;
         case THICK -> ROAD_WITH_YELLOW_THICK_LINE;
       };
-      default -> throw new UnsupportedOperationException(String.format("Cannot determine base block with [color=%s, type=%s]", lineColor.asString(), lineType.asString()));
+      default -> throw new UnsupportedOperationException(String.format("Cannot determine base block with [color=%s, type=%s]", lineColor.getSerializedName(), lineType.getSerializedName()));
     };
   }
 }

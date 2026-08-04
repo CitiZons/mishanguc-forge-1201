@@ -1,13 +1,15 @@
 plugins {
-    id 'fabric-loom' version '1.15-SNAPSHOT'
+    id 'eclipse'
+    id 'idea'
     id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.+'
 
     id "com.modrinth.minotaur" version "2.+"
     id 'net.darkhax.curseforgegradle' version '1.1.+'
     id "com.github.breadmoirai.github-release" version "2.5.2"
 }
 
-import com.modrinth.minotaur.dependencies.ModDependency
 import net.darkhax.curseforgegradle.TaskPublishCurseForge
 
 base {
@@ -16,75 +18,104 @@ base {
 version = project.mod_version + '-' + project.minecraft_version
 group = project.maven_group
 
-repositories {
-    // Add repositories to retrieve artifacts from in here.
-    // You should only use this when depending on other mods because
-    // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-    // See https://docs.gradle.org/current/userguide/declaring_repositories.html
-    // for more information about repositories.
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
-    // Mods on Modrinth
-    exclusiveContent {
-        forRepository {
-            maven {
-                name = "Modrinth"
-                url = "https://api.modrinth.com/maven"
+minecraft {
+    mappings channel: 'official', version: project.minecraft_version
+
+    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                mishanguc {
+                    source sourceSets.main
+                }
             }
         }
-        filter {
-            includeGroup "maven.modrinth"
+
+        client {
+            args '-username=Solid'
+        }
+
+        server {
+            args '--nogui'
+        }
+
+        data {
+            args '--mod', 'mishanguc', '--all',
+                    '--output', file('src/main/generated/'),
+                    '--existing', file('src/main/resources/')
         }
     }
-    // Mod Menu 模组
-    maven { url 'https://maven.terraformersmc.com/releases/' }
-    maven { url 'https://jitpack.io' }
 }
 
+sourceSets.main.resources { srcDir 'src/main/generated' }
 
-dependencies {
-    // To change the versions see the gradle.properties file
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-
-    // Fabric API. This is technically optional, but you probably want it anyway.
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-
-    if (project.hasProperty('imblocker_version') && !project.imblocker_version.isEmpty()) {
-        modRuntimeOnly "maven.modrinth:imblocker-original:$project.imblocker_version"
-    }
-}
-
-processResources {
-    inputs.property "version", project.mod_version
-
-    filesMatching("fabric.mod.json") {
-        expand "version": project.mod_version
+// Expand placeholders like ${mod_version} in mods.toml / pack.mcmeta
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version           : project.minecraft_version,
+            supported_minecraft_versions: project.supported_minecraft_versions,
+            forge_version               : project.forge_version,
+            mod_version                 : project.mod_version,
+            mod_id                      : project.archives_base_name
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    // Minecraft 1.18 upwards uses Java 17.
-    it.options.release = 17
+    options.compilerArgs << '-Xmaxerrs' << '5000'
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+repositories {
+    maven { url 'https://jitpack.io' }
+}
 
-    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-    // if it is present.
-    // If you remove this line, sources will not be generated.
-    withSourcesJar()
+dependencies {
+    minecraft "net.minecraftforge:forge:${project.forge_version}"
+
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // MixinExtras is bundled with Forge 47.x but needs explicit compile dependency
+    compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:0.3.5"))
+    implementation(jarJar("io.github.llamalad7:mixinextras-forge:0.3.5")) {
+        jarJar.ranged(it, "[0.3.5,)")
+    }
+}
+
+mixin {
+    add sourceSets.main, 'mishanguc.refmap.json'
+    config 'mishanguc.mixins.json'
 }
 
 jar {
     from("LICENSE") {
-        rename { "${it}_${project.base.archivesName}" }
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+    manifest {
+        attributes([
+                "Specification-Title"     : project.archives_base_name,
+                "Specification-Vendor"    : "SolidBlock",
+                "Specification-Version"   : "1",
+                "Implementation-Title"    : project.archives_base_name,
+                "Implementation-Version"  : project.mod_version,
+                "Implementation-Vendor"   : "SolidBlock",
+                "MixinConfigs"            : "mishanguc.mixins.json"
+        ])
     }
 }
 
-// configure the maven publication
 publishing {
     publications {
         create("mavenJava", MavenPublication) {
@@ -93,29 +124,11 @@ publishing {
         }
     }
 
-
-    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
     repositories {
-        // Add repositories to publish to here.
-        // Notice: This block does NOT have the same function as the block in the top level.
-        // The repositories here will be used for publishing your artifact, not for
-        // retrieving dependencies.
     }
 }
 
-
-
-loom {
-    runs {
-        client {
-            programArg "-username=Solid"
-        }
-    }
-}
-
-/**
- * 从 UpdateLog-en.md 中提取更新日志
- */
+// Update log extraction
 String getUpdateLog(String modVersion = project.mod_version) {
     StringBuilder builder = new StringBuilder()
     boolean start = false
@@ -133,8 +146,6 @@ String getUpdateLog(String modVersion = project.mod_version) {
     return builder.toString().trim()
 }
 
-// 模组发布部分
-
 println "当前版本（${project.mod_version}）更新记录："
 final var content = getUpdateLog(project.mod_version)
 println content
@@ -144,7 +155,7 @@ tasks.register('curseforge', TaskPublishCurseForge) {
     println("CurseForge 令牌: ${curseforgeToken instanceof String ? curseforgeToken.replaceAll("^(.+?)(.{0,6})\$", (s, a, b) -> a.replaceAll(".", "*") + b) : curseforgeToken}")
     if (curseforgeToken) apiToken = curseforgeToken
 
-    def mainFile = upload('583071', remapJar)
+    def mainFile = upload('583071', jar)
     mainFile.changelog = content
     mainFile.changelogType = 'markdown'
     mainFile.releaseType = project.mod_version.contains('-') ? 'beta' : 'release'
@@ -153,26 +164,25 @@ tasks.register('curseforge', TaskPublishCurseForge) {
         mainFile.addGameVersion v
     }
 
-    mainFile.addRelations 'requiredDependency', 'fabric-api'
-    mainFile.withAdditionalFile(sourcesJar)
+    mainFile.addRelations 'requiredDependency', 'forge'
 }
 
 modrinth {
-    println "Modrinth 令牌：${token.get() instanceof String ? token.get().replaceAll("^(.+?)(.{0,6})\$", (s, a, b) -> a.replaceAll(".", "*") + b) : token.get()}"
+    def modrinthToken = System.getenv("MODRINTH_TOKEN")
+    if (modrinthToken) token = modrinthToken
+    println "Modrinth 令牌：${modrinthToken instanceof String ? modrinthToken.replaceAll("^(.+?)(.{0,6})\$", (s, a, b) -> a.replaceAll(".", "*") + b) : modrinthToken}"
 
-    projectId = "rItLmRo4" // 迷上城建模组的 Modrinth ID
+    projectId = "rItLmRo4"
     versionNumber = project.mod_version + '-' + project.minecraft_version
-    versionType = project.mod_version.contains('-') ? 'beta' : 'release'  // until release of MC
-    uploadFile = remapJar
+    versionType = project.mod_version.contains('-') ? 'beta' : 'release'
+    uploadFile = jar
     gameVersions = Arrays.asList(project.supported_minecraft_versions.split(','))
 
     changelog = content
 
-    loaders = ['fabric']
+    loaders = ['forge']
 
-    dependencies = [
-            new ModDependency('P7dR8mSH', 'required'), // Fabric API
-    ]
+    dependencies = []
 }
 
 githubRelease {
@@ -186,15 +196,11 @@ githubRelease {
     body = content
     draft = true
     prerelease = false
-    releaseAssets remapJar, remapSourcesJar
+    releaseAssets jar
     allowUploadToExisting = true
     apiEndpoint = "https://api.github.com"
 }
 
 publish {
     dependsOn tasks.curseforge, tasks.modrinth, tasks.githubRelease
-}
-
-fabricApi {
-    configureDataGeneration()
 }

@@ -1,28 +1,31 @@
 package pers.solid.mishang.uc;
 
+import net.minecraft.client.Minecraft;
+
+import net.minecraft.nbt.Tag;
+
 import com.google.common.base.Functions;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.*;
 import com.google.gson.JsonPrimitive;
-import net.fabricmc.fabric.api.tag.convention.v1.ConventionalItemTags;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.data.client.VariantSetting;
-import net.minecraft.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import pers.solid.mishang.uc.data.stubs.VariantSetting;
+import net.minecraft.world.item.Item;
 import net.minecraft.nbt.*;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.state.property.Property;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.ColorHelper;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.ChatFormatting;
+import net.minecraft.util.FastColor;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.phys.shapes.Shapes;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -31,6 +34,7 @@ import pers.solid.mishang.uc.block.HandrailBlock;
 import pers.solid.mishang.uc.blocks.*;
 import pers.solid.mishang.uc.item.MishangucItems;
 import pers.solid.mishang.uc.text.TextContext;
+import pers.solid.mishang.uc.data.stubs.ConventionalItemTags;
 import pers.solid.mishang.uc.util.LineColor;
 import pers.solid.mishang.uc.util.LineType;
 import pers.solid.mishang.uc.util.TextBridge;
@@ -41,6 +45,7 @@ import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import com.mojang.math.Axis;
 
 /**
  * 本类存放一些实用方法。
@@ -52,7 +57,7 @@ public class MishangUtils {
   public static final @Unmodifiable BiMap<DyeColor, Integer> COLOR_TO_OUTLINE_COLOR = Arrays.stream(DyeColor.values()).collect(ImmutableBiMap.toImmutableBiMap(Functions.identity(), MishangUtils::toSignOutlineColor));
   public static final VariantSetting<Integer> INT_X_VARIANT = new VariantSetting<>("x", JsonPrimitive::new);
   public static final VariantSetting<Integer> INT_Y_VARIANT = new VariantSetting<>("y", JsonPrimitive::new);
-  public static final VariantSetting<Direction> DIRECTION_Y_VARIANT = new VariantSetting<>("y", direction -> new JsonPrimitive((int) direction.asRotation()));
+  public static final VariantSetting<Direction> DIRECTION_Y_VARIANT = new VariantSetting<>("y", direction -> new JsonPrimitive((int) direction.toYRot()));
   private static final Supplier<ImmutableList<Block>> memoizedBlocks = Suppliers.memoize(MishangUtils::blocksInternal);
   private static final Supplier<ImmutableList<Item>> memoizedItems = Suppliers.memoize(MishangUtils::itemsInternal);
   private static final ImmutableSet<Block> WOODS = ImmutableSet.of(Blocks.OAK_WOOD, Blocks.SPRUCE_WOOD, Blocks.BIRCH_WOOD, Blocks.JUNGLE_WOOD, Blocks.ACACIA_WOOD, Blocks.DARK_OAK_WOOD, Blocks.MANGROVE_WOOD, Blocks.CRIMSON_HYPHAE, Blocks.WARPED_HYPHAE, Blocks.CHERRY_WOOD);
@@ -99,30 +104,30 @@ public class MishangUtils {
   public static EnumMap<Direction, @NotNull VoxelShape> createDirectionToShape(
       double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
     final EnumMap<Direction, VoxelShape> map = new EnumMap<>(Direction.class);
-    map.put(Direction.UP, Block.createCuboidShape(minX, minY, minZ, maxX, maxY, maxZ));
+    map.put(Direction.UP, Block.box(minX, minY, minZ, maxX, maxY, maxZ));
     map.put(
         Direction.DOWN,
-        Block.createCuboidShape(16 - maxX, 16 - maxY, 16 - maxZ, 16 - minX, 16 - minY, 16 - minZ));
-    map.put(Direction.EAST, Block.createCuboidShape(minY, minZ, minX, maxY, maxZ, maxX));
+        Block.box(16 - maxX, 16 - maxY, 16 - maxZ, 16 - minX, 16 - minY, 16 - minZ));
+    map.put(Direction.EAST, Block.box(minY, minZ, minX, maxY, maxZ, maxX));
     map.put(
         Direction.WEST,
-        Block.createCuboidShape(16 - maxY, 16 - maxZ, 16 - maxX, 16 - minY, 16 - minZ, 16 - minX));
-    map.put(Direction.SOUTH, Block.createCuboidShape(minX, minZ, minY, maxX, maxZ, maxY));
+        Block.box(16 - maxY, 16 - maxZ, 16 - maxX, 16 - minY, 16 - minZ, 16 - minX));
+    map.put(Direction.SOUTH, Block.box(minX, minZ, minY, maxX, maxZ, maxY));
     map.put(
         Direction.NORTH,
-        Block.createCuboidShape(16 - maxX, 16 - maxZ, 16 - maxY, 16 - minX, 16 - minZ, 16 - minY));
+        Block.box(16 - maxX, 16 - maxZ, 16 - maxY, 16 - minX, 16 - minZ, 16 - minY));
     return map;
   }
 
   public static Map<Direction, @Nullable VoxelShape> createHorizontalDirectionToShape(
       double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
     final Map<Direction, VoxelShape> map = new EnumMap<>(Direction.class);
-    map.put(Direction.SOUTH, Block.createCuboidShape(minX, minY, minZ, maxX, maxY, maxZ));
-    map.put(Direction.WEST, Block.createCuboidShape(16 - maxZ, minY, minX, 16 - minZ, maxY, maxX));
+    map.put(Direction.SOUTH, Block.box(minX, minY, minZ, maxX, maxY, maxZ));
+    map.put(Direction.WEST, Block.box(16 - maxZ, minY, minX, 16 - minZ, maxY, maxX));
     map.put(
         Direction.NORTH,
-        Block.createCuboidShape(16 - maxX, minY, 16 - maxZ, 16 - minX, maxY, 16 - minZ));
-    map.put(Direction.EAST, Block.createCuboidShape(minZ, minY, 16 - maxX, maxZ, maxY, 16 - minX));
+        Block.box(16 - maxX, minY, 16 - maxZ, 16 - minX, maxY, 16 - minZ));
+    map.put(Direction.EAST, Block.box(minZ, minY, 16 - maxX, maxZ, maxY, 16 - minX));
     return map;
   }
 
@@ -134,7 +139,7 @@ public class MishangUtils {
     for (Direction direction : Direction.values()) {
       final VoxelShape first = firstDirectionToShape.get(direction);
       if (first != null) {
-        map.put(direction, VoxelShapes.union(
+        map.put(direction, Shapes.or(
             first,
             Arrays.stream(directionToShapes)
                 .filter(Objects::nonNull)
@@ -153,7 +158,7 @@ public class MishangUtils {
    */
   public static @Nullable DyeColor colorBySignColor(int signColor) {
     for (DyeColor color : DyeColor.values()) {
-      if (color.getSignColor() == signColor) {
+      if (color.getTextColor() == signColor) {
         return color;
       }
     }
@@ -167,7 +172,7 @@ public class MishangUtils {
    * @return 发光后颜色的整数值。
    */
   private static int toSignOutlineColor(DyeColor color) {
-    return toSignOutlineColor(color.getSignColor());
+    return toSignOutlineColor(color.getTextColor());
   }
 
   /**
@@ -180,10 +185,10 @@ public class MishangUtils {
     if ((color & 0xffffff) == 0) {
       return (color & 0xff000000) | 0xf0ebcc;
     }
-    int j = (int) ((double) ColorHelper.Argb.getRed(color) * 0.4);
-    int k = (int) ((double) ColorHelper.Argb.getGreen(color) * 0.4);
-    int l = (int) ((double) ColorHelper.Argb.getBlue(color) * 0.4);
-    return ColorHelper.Argb.getArgb(ColorHelper.Argb.getAlpha(color), j, k, l);
+    int j = (int) ((double) FastColor.ARGB32.red(color) * 0.4);
+    int k = (int) ((double) FastColor.ARGB32.green(color) * 0.4);
+    int l = (int) ((double) FastColor.ARGB32.blue(color) * 0.4);
+    return FastColor.ARGB32.color(FastColor.ARGB32.alpha(color), j, k, l);
   }
 
   @ApiStatus.AvailableSince("0.2.0")
@@ -310,7 +315,7 @@ public class MishangUtils {
   /**
    * 对一个坐标轴进行旋转。
    */
-  public static Direction.Axis rotateAxis(BlockRotation rotation, Direction.Axis axis) {
+  public static Direction.Axis rotateAxis(Rotation rotation, Direction.Axis axis) {
     return switch (rotation) {
       case COUNTERCLOCKWISE_90, CLOCKWISE_90 -> switch (axis) {
         case X -> Direction.Axis.Z;
@@ -322,16 +327,36 @@ public class MishangUtils {
   }
 
   public static <T extends Comparable<T>> BlockState with(BlockState state, Property<T> property, String name) {
-    return property.parse(name).map(value -> state.with(property, value)).orElse(state);
+    return property.getValue(name).map(value -> state.setValue(property, value)).orElse(state);
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  public static <T extends Comparable<T>> BlockState setValue(BlockState state, Property<T> property, String name) {
+    return with(state, property, name);
+  }
+
+  /**
+   * Returns the default state of {@code block} with all properties shared with {@code source} copied over.
+   * Replaces Fabric/Yarn's {@code AbstractBlock.getStateWithProperties}.
+   */
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  public static BlockState getStateWithProperties(net.minecraft.world.level.block.Block block, BlockState source) {
+    BlockState result = block.defaultBlockState();
+    for (Property property : source.getProperties()) {
+      if (result.hasProperty(property)) {
+        result = result.setValue(property, source.getValue(property));
+      }
+    }
+    return result;
   }
 
   @ApiStatus.AvailableSince("0.2.1")
-  public static MutableText describeColor(int color) {
+  public static MutableComponent describeColor(int color) {
     return describeColor(color, TextBridge.literal(formatColorHex(color)));
   }
 
-  public static MutableText describeColor(int color, Text text) {
-    return TextBridge.empty().append(TextBridge.literal("■").styled(style -> style.withColor(color))).append(text);
+  public static MutableComponent describeColor(int color, Component text) {
+    return TextBridge.empty().append(TextBridge.literal("■").withStyle(style -> style.withColor(color))).append(text);
   }
 
   /**
@@ -357,14 +382,14 @@ public class MishangUtils {
             g = i >> 8 & 0xf;
             b = i >> 4 & 0xf;
             a = i & 0xf;
-            return ColorHelper.Argb.getArgb(a * 17, r * 17, g * 17, b * 17);
+            return FastColor.ARGB32.color(a * 17, r * 17, g * 17, b * 17);
           }
           case 3 -> {
             final int r, g, b;
             r = i >> 8 & 0xf;
             g = i >> 4 & 0xf;
             b = i & 0xf;
-            return ColorHelper.Argb.getArgb(0, r * 17, g * 17, b * 17);
+            return FastColor.ARGB32.color(0, r * 17, g * 17, b * 17);
           }
           case 8 -> {
             final int rgb = i >> 8 & 0xffffff;
@@ -382,52 +407,52 @@ public class MishangUtils {
         return null;
       }
     } else {
-      final TextColor parse = TextColor.parse(s);
-      return parse == null ? null : parse.getRgb();
+      final TextColor parse = TextColor.parseColor(s);
+      return parse == null ? null : parse.getValue();
     }
   }
 
-  public static MutableText describeShortcut(Text shortcut) {
-    return TextBridge.translatable("message.mishanguc.keyboard_shortcut.composed", shortcut).formatted(Formatting.GRAY);
+  public static MutableComponent describeShortcut(Component shortcut) {
+    return TextBridge.translatable("message.mishanguc.keyboard_shortcut.composed", shortcut).withStyle(ChatFormatting.GRAY);
   }
 
   @ApiStatus.AvailableSince("0.2.4")
   public static String composeStraightLineTexture(LineColor lineColor, LineType lineType) {
     if (lineType == LineType.NORMAL) {
-      return lineColor.asString() + "_straight_line";
+      return lineColor.getSerializedName() + "_straight_line";
     } else {
-      return lineColor.asString() + "_straight_" + lineType.asString() + "_line";
+      return lineColor.getSerializedName() + "_straight_" + lineType.getSerializedName() + "_line";
     }
   }
 
   public static String composeAngleLineTexture(LineColor lineColor, LineType lineType, boolean bevel) {
-    return lineColor.asString() + "_" + (lineType == LineType.NORMAL ? "" : lineColor.asString() + "_") + (bevel ? "bevel" : "right") + "_angle_line";
+    return lineColor.getSerializedName() + "_" + (lineType == LineType.NORMAL ? "" : lineColor.getSerializedName() + "_") + (bevel ? "bevel" : "right") + "_angle_line";
   }
 
-  public static int readColorFromNbtElement(NbtElement nbtColor) {
-    if (nbtColor instanceof final AbstractNbtNumber abstractNbtNumber) {
-      return abstractNbtNumber.intValue();
-    } else if (nbtColor instanceof NbtString) {
-      final TextColor parse = TextColor.parse(nbtColor.asString());
-      return parse == null ? 0 : parse.getRgb();
-    } else if (nbtColor instanceof AbstractNbtList<?> list) {
+  public static int readColorFromNbtElement(Tag nbtColor) {
+    if (nbtColor instanceof final NumericTag abstractNbtNumber) {
+      return abstractNbtNumber.getAsInt();
+    } else if (nbtColor instanceof StringTag) {
+      final TextColor parse = TextColor.parseColor(nbtColor.getAsString());
+      return parse == null ? 0 : parse.getValue();
+    } else if (nbtColor instanceof CollectionTag<?> list) {
       final int size = list.size();
-      NbtElement _red = size > 0 ? list.get(0) : null;
-      NbtElement _green = size > 1 ? list.get(1) : null;
-      NbtElement _blue = size > 2 ? list.get(2) : null;
-      NbtElement _alpha = size > 3 ? list.get(3) : null;
-      int red = _red instanceof AbstractNbtNumber ? ((AbstractNbtNumber) _red).intValue() & 0xff : 0;
-      int green = _green instanceof AbstractNbtNumber ? ((AbstractNbtNumber) _green).intValue() & 0xff : 0;
-      int blue = _blue instanceof AbstractNbtNumber ? ((AbstractNbtNumber) _blue).intValue() & 0xff : 0;
-      int alpha = _alpha instanceof AbstractNbtNumber ? ((AbstractNbtNumber) _alpha).intValue() & 0xff : 0;
+      Tag _red = size > 0 ? list.get(0) : null;
+      Tag _green = size > 1 ? list.get(1) : null;
+      Tag _blue = size > 2 ? list.get(2) : null;
+      Tag _alpha = size > 3 ? list.get(3) : null;
+      int red = _red instanceof NumericTag ? ((NumericTag) _red).getAsInt() & 0xff : 0;
+      int green = _green instanceof NumericTag ? ((NumericTag) _green).getAsInt() & 0xff : 0;
+      int blue = _blue instanceof NumericTag ? ((NumericTag) _blue).getAsInt() & 0xff : 0;
+      int alpha = _alpha instanceof NumericTag ? ((NumericTag) _alpha).getAsInt() & 0xff : 0;
       return (red << 16 | green << 8 | blue | alpha << 24);
-    } else if (nbtColor instanceof final NbtCompound nbtCompound) {
-      if (nbtCompound.contains("signColor", NbtElement.STRING_TYPE)) {
-        return DyeColor.byName(nbtCompound.getString("signColor"), DyeColor.BLACK).getSignColor();
-      } else if (nbtCompound.contains("fireworkColor", NbtElement.STRING_TYPE)) {
+    } else if (nbtColor instanceof final CompoundTag nbtCompound) {
+      if (nbtCompound.contains("signColor", Tag.TAG_STRING)) {
+        return DyeColor.byName(nbtCompound.getString("signColor"), DyeColor.BLACK).getTextColor();
+      } else if (nbtCompound.contains("fireworkColor", Tag.TAG_STRING)) {
         return DyeColor.byName(nbtCompound.getString("fireworkColor"), DyeColor.BLACK).getFireworkColor();
-      } else if (nbtCompound.contains("mapColor", NbtElement.STRING_TYPE)) {
-        return DyeColor.byName(nbtCompound.getString("mapColor"), DyeColor.BLACK).getMapColor().color;
+      } else if (nbtCompound.contains("mapColor", Tag.TAG_STRING)) {
+        return DyeColor.byName(nbtCompound.getString("mapColor"), DyeColor.BLACK).getMapColor().col;
       } else {
         return 0;
       }

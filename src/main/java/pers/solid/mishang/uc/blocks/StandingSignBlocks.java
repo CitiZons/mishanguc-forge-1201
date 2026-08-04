@@ -1,12 +1,12 @@
 package pers.solid.mishang.uc.blocks;
 
 import com.google.common.collect.ImmutableMap;
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.MapColor;
-import net.minecraft.block.WoodType;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Identifier;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.block.state.properties.WoodType;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.ApiStatus;
 import pers.solid.mishang.uc.annotations.MiningLevel;
 import pers.solid.mishang.uc.annotations.Translucent;
@@ -62,7 +62,7 @@ public final class StandingSignBlocks extends MishangucBlocks {
   @ApiStatus.AvailableSince("1.2.4")
   public static final StandingSignBlock STRIPPED_DARK_OAK_WOOD_STANDING_SIGN = new StandingSignBlock(Blocks.STRIPPED_DARK_OAK_WOOD);
   @ApiStatus.AvailableSince("1.2.4")
-  public static final StandingSignBlock STRIPPED_MANGROVE_WOOD_STANDING_SIGN = new StandingSignBlock(Blocks.STRIPPED_MANGROVE_WOOD, FabricBlockSettings.copyOf(Blocks.STRIPPED_MANGROVE_WOOD).mapColor(MapColor.RED));
+  public static final StandingSignBlock STRIPPED_MANGROVE_WOOD_STANDING_SIGN = new StandingSignBlock(Blocks.STRIPPED_MANGROVE_WOOD, BlockBehaviour.Properties.copy(Blocks.STRIPPED_MANGROVE_WOOD).mapColor(MapColor.COLOR_RED));
   @ApiStatus.AvailableSince("1.2.4")
   public static final StandingSignBlock STRIPPED_CRIMSON_HYPHAE_STANDING_SIGN = new StandingSignBlock(Blocks.STRIPPED_CRIMSON_HYPHAE);
   @ApiStatus.AvailableSince("1.2.4")
@@ -82,36 +82,36 @@ public final class StandingSignBlocks extends MishangucBlocks {
 
   @ApiStatus.AvailableSince("1.0.4-mc1.19.3")
   @MiningLevel(MiningLevel.Tool.AXE)
-  public static final StandingSignBlock BAMBOO_STANDING_SIGN = new StandingSignBlock(Blocks.BAMBOO_BLOCK, FabricBlockSettings.copyOf(Blocks.BAMBOO_BLOCK).mapColor(MapColor.DARK_GREEN));
+  public static final StandingSignBlock BAMBOO_STANDING_SIGN = new StandingSignBlock(Blocks.BAMBOO_BLOCK, BlockBehaviour.Properties.copy(Blocks.BAMBOO_BLOCK).mapColor(MapColor.PLANT));
   @ApiStatus.AvailableSince("1.0.4-mc1.19.3")
   @MiningLevel(MiningLevel.Tool.AXE)
-  public static final StandingSignBlock BAMBOO_PLANK_STANDING_SIGN = new StandingSignBlock(Blocks.BAMBOO_PLANKS, FabricBlockSettings.copyOf(Blocks.BAMBOO_PLANKS));
+  public static final StandingSignBlock BAMBOO_PLANK_STANDING_SIGN = new StandingSignBlock(Blocks.BAMBOO_PLANKS, BlockBehaviour.Properties.copy(Blocks.BAMBOO_PLANKS));
   @ApiStatus.AvailableSince("1.0.4-mc1.19.3")
   @MiningLevel(MiningLevel.Tool.AXE)
-  public static final StandingSignBlock BAMBOO_MOSAIC_STANDING_SIGN = new StandingSignBlock(Blocks.BAMBOO_MOSAIC, FabricBlockSettings.copyOf(Blocks.BAMBOO_MOSAIC));
+  public static final StandingSignBlock BAMBOO_MOSAIC_STANDING_SIGN = new StandingSignBlock(Blocks.BAMBOO_MOSAIC, BlockBehaviour.Properties.copy(Blocks.BAMBOO_MOSAIC));
 
   static {
-    OAK_WOOD_STANDING_SIGN.baseTexture = OAK_STANDING_SIGN.barTexture = new Identifier("block/oak_log");
-    SPRUCE_WOOD_STANDING_SIGN.baseTexture = SPRUCE_STANDING_SIGN.barTexture = new Identifier("block/spruce_log");
-    BIRCH_WOOD_STANDING_SIGN.baseTexture = BIRCH_STANDING_SIGN.barTexture = new Identifier("block/birch_log");
-    JUNGLE_WOOD_STANDING_SIGN.baseTexture = JUNGLE_STANDING_SIGN.barTexture = new Identifier("block/jungle_log");
-    ACACIA_WOOD_STANDING_SIGN.baseTexture = ACACIA_STANDING_SIGN.barTexture = new Identifier("block/acacia_log");
-    CHERRY_WOOD_STANDING_SIGN.baseTexture = CHERRY_STANDING_SIGN.barTexture = new Identifier("block/cherry_log");
-    DARK_OAK_WOOD_STANDING_SIGN.baseTexture = DARK_OAK_STANDING_SIGN.barTexture = new Identifier("block/dark_oak_log");
-    MANGROVE_WOOD_STANDING_SIGN.baseTexture = MANGROVE_STANDING_SIGN.barTexture = new Identifier("block/mangrove_log");
-    CRIMSON_HYPHAE_STANDING_SIGN.baseTexture = CRIMSON_STANDING_SIGN.barTexture = new Identifier("block/crimson_stem");
-    WARPED_HYPHAE_STANDING_SIGN.baseTexture = WARPED_STANDING_SIGN.barTexture = new Identifier("block/warped_stem");
-    STRIPPED_OAK_WOOD_STANDING_SIGN.baseTexture = new Identifier("block/stripped_oak_log");
-    STRIPPED_SPRUCE_WOOD_STANDING_SIGN.baseTexture = new Identifier("block/stripped_spruce_log");
-    STRIPPED_BIRCH_WOOD_STANDING_SIGN.baseTexture = new Identifier("block/stripped_birch_log");
-    STRIPPED_JUNGLE_WOOD_STANDING_SIGN.baseTexture = new Identifier("block/stripped_jungle_log");
-    STRIPPED_ACACIA_WOOD_STANDING_SIGN.baseTexture = new Identifier("block/stripped_acacia_log");
-    STRIPPED_CHERRY_WOOD_STANDING_SIGN.baseTexture = new Identifier("block/stripped_cherry_log");
-    STRIPPED_DARK_OAK_WOOD_STANDING_SIGN.baseTexture = new Identifier("block/stripped_dark_oak_log");
-    STRIPPED_MANGROVE_WOOD_STANDING_SIGN.baseTexture = new Identifier("block/stripped_mangrove_log");
-    STRIPPED_CRIMSON_HYPHAE_STANDING_SIGN.baseTexture = new Identifier("block/stripped_crimson_stem");
-    STRIPPED_WARPED_HYPHAE_STANDING_SIGN.baseTexture = new Identifier("block/stripped_warped_stem");
-    BAMBOO_PLANK_STANDING_SIGN.barTexture = BAMBOO_MOSAIC_STANDING_SIGN.barTexture = new Identifier("block/bamboo_block");
+    OAK_WOOD_STANDING_SIGN.baseTexture = OAK_STANDING_SIGN.barTexture = new ResourceLocation("block/oak_log");
+    SPRUCE_WOOD_STANDING_SIGN.baseTexture = SPRUCE_STANDING_SIGN.barTexture = new ResourceLocation("block/spruce_log");
+    BIRCH_WOOD_STANDING_SIGN.baseTexture = BIRCH_STANDING_SIGN.barTexture = new ResourceLocation("block/birch_log");
+    JUNGLE_WOOD_STANDING_SIGN.baseTexture = JUNGLE_STANDING_SIGN.barTexture = new ResourceLocation("block/jungle_log");
+    ACACIA_WOOD_STANDING_SIGN.baseTexture = ACACIA_STANDING_SIGN.barTexture = new ResourceLocation("block/acacia_log");
+    CHERRY_WOOD_STANDING_SIGN.baseTexture = CHERRY_STANDING_SIGN.barTexture = new ResourceLocation("block/cherry_log");
+    DARK_OAK_WOOD_STANDING_SIGN.baseTexture = DARK_OAK_STANDING_SIGN.barTexture = new ResourceLocation("block/dark_oak_log");
+    MANGROVE_WOOD_STANDING_SIGN.baseTexture = MANGROVE_STANDING_SIGN.barTexture = new ResourceLocation("block/mangrove_log");
+    CRIMSON_HYPHAE_STANDING_SIGN.baseTexture = CRIMSON_STANDING_SIGN.barTexture = new ResourceLocation("block/crimson_stem");
+    WARPED_HYPHAE_STANDING_SIGN.baseTexture = WARPED_STANDING_SIGN.barTexture = new ResourceLocation("block/warped_stem");
+    STRIPPED_OAK_WOOD_STANDING_SIGN.baseTexture = new ResourceLocation("block/stripped_oak_log");
+    STRIPPED_SPRUCE_WOOD_STANDING_SIGN.baseTexture = new ResourceLocation("block/stripped_spruce_log");
+    STRIPPED_BIRCH_WOOD_STANDING_SIGN.baseTexture = new ResourceLocation("block/stripped_birch_log");
+    STRIPPED_JUNGLE_WOOD_STANDING_SIGN.baseTexture = new ResourceLocation("block/stripped_jungle_log");
+    STRIPPED_ACACIA_WOOD_STANDING_SIGN.baseTexture = new ResourceLocation("block/stripped_acacia_log");
+    STRIPPED_CHERRY_WOOD_STANDING_SIGN.baseTexture = new ResourceLocation("block/stripped_cherry_log");
+    STRIPPED_DARK_OAK_WOOD_STANDING_SIGN.baseTexture = new ResourceLocation("block/stripped_dark_oak_log");
+    STRIPPED_MANGROVE_WOOD_STANDING_SIGN.baseTexture = new ResourceLocation("block/stripped_mangrove_log");
+    STRIPPED_CRIMSON_HYPHAE_STANDING_SIGN.baseTexture = new ResourceLocation("block/stripped_crimson_stem");
+    STRIPPED_WARPED_HYPHAE_STANDING_SIGN.baseTexture = new ResourceLocation("block/stripped_warped_stem");
+    BAMBOO_PLANK_STANDING_SIGN.barTexture = BAMBOO_MOSAIC_STANDING_SIGN.barTexture = new ResourceLocation("block/bamboo_block");
   }
 
   public static final ImmutableMap<WoodType, StandingSignBlock> WOODEN_SIGNS = new ImmutableMap.Builder<WoodType, StandingSignBlock>()
@@ -351,12 +351,11 @@ public final class StandingSignBlocks extends MishangucBlocks {
   public static final GlowingStandingSignBlock GLOWING_POLISHED_BLACKSTONE_STANDING_SIGN = new GlowingStandingSignBlock(Blocks.POLISHED_BLACKSTONE);
 
   static {
-    GLOWING_NETHERRACK_STANDING_SIGN.glowTexture = new Identifier("block/lava_still");
-    GLOWING_NETHER_BRICK_STANDING_SIGN.glowTexture = new Identifier("block/lava_still");
-    GLOWING_BLACKSTONE_STANDING_SIGN.glowTexture = new Identifier("block/glowstone");
-    GLOWING_POLISHED_BLACKSTONE_STANDING_SIGN.glowTexture = new Identifier("block/glowstone");
+    GLOWING_NETHERRACK_STANDING_SIGN.glowTexture = new ResourceLocation("block/lava_still");
+    GLOWING_NETHER_BRICK_STANDING_SIGN.glowTexture = new ResourceLocation("block/lava_still");
+    GLOWING_BLACKSTONE_STANDING_SIGN.glowTexture = new ResourceLocation("block/glowstone");
+    GLOWING_POLISHED_BLACKSTONE_STANDING_SIGN.glowTexture = new ResourceLocation("block/glowstone");
   }
-
 
   // 雪
   @MiningLevel(MiningLevel.Tool.SHOVEL)
@@ -372,10 +371,10 @@ public final class StandingSignBlocks extends MishangucBlocks {
   public static final GlowingStandingSignBlock GLOWING_BLUE_ICE_STANDING_SIGN = new GlowingStandingSignBlock(Blocks.BLUE_ICE);
 
   static {
-    SNOW_STANDING_SIGN.baseTexture = new Identifier("block/snow");
-    SNOW_STANDING_SIGN.barTexture = new Identifier("block/packed_ice");
-    GLOWING_SNOW_STANDING_SIGN.baseTexture = new Identifier("block/snow");
-    GLOWING_SNOW_STANDING_SIGN.barTexture = new Identifier("block/packed_ice");
-    ICE_STANDING_SIGN.barTexture = new Identifier("block/blue_ice");
+    SNOW_STANDING_SIGN.baseTexture = new ResourceLocation("block/snow");
+    SNOW_STANDING_SIGN.barTexture = new ResourceLocation("block/packed_ice");
+    GLOWING_SNOW_STANDING_SIGN.baseTexture = new ResourceLocation("block/snow");
+    GLOWING_SNOW_STANDING_SIGN.barTexture = new ResourceLocation("block/packed_ice");
+    ICE_STANDING_SIGN.barTexture = new ResourceLocation("block/blue_ice");
   }
 }

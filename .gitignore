@@ -39,3 +39,4 @@ docs/
 
 /token.txt
 /apiKey.txt
+.claude/settings.local.json

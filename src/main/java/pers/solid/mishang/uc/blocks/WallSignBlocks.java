@@ -1,11 +1,11 @@
 package pers.solid.mishang.uc.blocks;
 
 import com.google.common.collect.ImmutableMap;
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.MapColor;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Identifier;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.ApiStatus;
 import pers.solid.mishang.uc.annotations.MiningLevel;
 import pers.solid.mishang.uc.annotations.Translucent;
@@ -21,10 +21,10 @@ public final class WallSignBlocks extends MishangucBlocks {
    * 隐形的告示牌。
    */
   @MiningLevel(MiningLevel.Tool.NONE)
-  public static final FullWallSignBlock INVISIBLE_WALL_SIGN = new FullWallSignBlock(null, FabricBlockSettings.create().mapColor(MapColor.CLEAR).noCollision().strength(0, 1f));
+  public static final FullWallSignBlock INVISIBLE_WALL_SIGN = new FullWallSignBlock(null, BlockBehaviour.Properties.of().mapColor(MapColor.NONE).noCollission().strength(0, 1f));
 
   @MiningLevel(MiningLevel.Tool.NONE)
-  public static final FullWallSignBlock INVISIBLE_GLOWING_WALL_SIGN = new FullWallSignBlock(null, FabricBlockSettings.create().mapColor(MapColor.CLEAR).noCollision().luminance(15).strength(0, 1f));
+  public static final FullWallSignBlock INVISIBLE_GLOWING_WALL_SIGN = new FullWallSignBlock(null, BlockBehaviour.Properties.of().mapColor(MapColor.NONE).noCollission().lightLevel(state -> 15).strength(0, 1f));
 
   // 木质
   @ApiStatus.AvailableSince("1.2.4")
@@ -64,33 +64,33 @@ public final class WallSignBlocks extends MishangucBlocks {
   public static final WallSignBlock STRIPPED_DARK_OAK_WOOD_WALL_SIGN = new WallSignBlock(Blocks.STRIPPED_DARK_OAK_WOOD);
 
   @ApiStatus.AvailableSince("1.2.4")
-  public static final WallSignBlock STRIPPED_MANGROVE_WOOD_WALL_SIGN = new WallSignBlock(Blocks.STRIPPED_MANGROVE_WOOD, FabricBlockSettings.copyOf(Blocks.STRIPPED_MANGROVE_WOOD).mapColor(MapColor.RED));
+  public static final WallSignBlock STRIPPED_MANGROVE_WOOD_WALL_SIGN = new WallSignBlock(Blocks.STRIPPED_MANGROVE_WOOD, BlockBehaviour.Properties.copy(Blocks.STRIPPED_MANGROVE_WOOD).mapColor(MapColor.COLOR_RED));
 
   public static final WallSignBlock STRIPPED_CRIMSON_HYPHAE_WALL_SIGN = new WallSignBlock(Blocks.STRIPPED_CRIMSON_HYPHAE);
 
   public static final WallSignBlock STRIPPED_WARPED_HYPHAE_WALL_SIGN = new WallSignBlock(Blocks.STRIPPED_WARPED_HYPHAE);
 
   static {
-    OAK_WOOD_WALL_SIGN.texture = new Identifier("block/oak_log");
-    SPRUCE_WOOD_WALL_SIGN.texture = new Identifier("block/spruce_log");
-    BIRCH_WOOD_WALL_SIGN.texture = new Identifier("block/birch_log");
-    JUNGLE_WOOD_WALL_SIGN.texture = new Identifier("block/jungle_log");
-    ACACIA_WOOD_WALL_SIGN.texture = new Identifier("block/acacia_log");
-    CHERRY_WOOD_WALL_SIGN.texture = new Identifier("block/cherry_log");
-    DARK_OAK_WOOD_WALL_SIGN.texture = new Identifier("block/dark_oak_log");
-    MANGROVE_WOOD_WALL_SIGN.texture = new Identifier("block/mangrove_log");
-    CRIMSON_HYPHAE_WALL_SIGN.texture = new Identifier("block/crimson_stem");
-    WARPED_HYPHAE_WALL_SIGN.texture = new Identifier("block/warped_stem");
-    STRIPPED_OAK_WOOD_WALL_SIGN.texture = new Identifier("block/stripped_oak_log");
-    STRIPPED_SPRUCE_WOOD_WALL_SIGN.texture = new Identifier("block/stripped_spruce_log");
-    STRIPPED_BIRCH_WOOD_WALL_SIGN.texture = new Identifier("block/stripped_birch_log");
-    STRIPPED_JUNGLE_WOOD_WALL_SIGN.texture = new Identifier("block/stripped_jungle_log");
-    STRIPPED_ACACIA_WOOD_WALL_SIGN.texture = new Identifier("block/stripped_acacia_log");
-    STRIPPED_CHERRY_WOOD_WALL_SIGN.texture = new Identifier("block/stripped_cherry_log");
-    STRIPPED_DARK_OAK_WOOD_WALL_SIGN.texture = new Identifier("block/stripped_dark_oak_log");
-    STRIPPED_MANGROVE_WOOD_WALL_SIGN.texture = new Identifier("block/stripped_mangrove_log");
-    STRIPPED_CRIMSON_HYPHAE_WALL_SIGN.texture = new Identifier("block/stripped_crimson_stem");
-    STRIPPED_WARPED_HYPHAE_WALL_SIGN.texture = new Identifier("block/stripped_warped_stem");
+    OAK_WOOD_WALL_SIGN.texture = new ResourceLocation("block/oak_log");
+    SPRUCE_WOOD_WALL_SIGN.texture = new ResourceLocation("block/spruce_log");
+    BIRCH_WOOD_WALL_SIGN.texture = new ResourceLocation("block/birch_log");
+    JUNGLE_WOOD_WALL_SIGN.texture = new ResourceLocation("block/jungle_log");
+    ACACIA_WOOD_WALL_SIGN.texture = new ResourceLocation("block/acacia_log");
+    CHERRY_WOOD_WALL_SIGN.texture = new ResourceLocation("block/cherry_log");
+    DARK_OAK_WOOD_WALL_SIGN.texture = new ResourceLocation("block/dark_oak_log");
+    MANGROVE_WOOD_WALL_SIGN.texture = new ResourceLocation("block/mangrove_log");
+    CRIMSON_HYPHAE_WALL_SIGN.texture = new ResourceLocation("block/crimson_stem");
+    WARPED_HYPHAE_WALL_SIGN.texture = new ResourceLocation("block/warped_stem");
+    STRIPPED_OAK_WOOD_WALL_SIGN.texture = new ResourceLocation("block/stripped_oak_log");
+    STRIPPED_SPRUCE_WOOD_WALL_SIGN.texture = new ResourceLocation("block/stripped_spruce_log");
+    STRIPPED_BIRCH_WOOD_WALL_SIGN.texture = new ResourceLocation("block/stripped_birch_log");
+    STRIPPED_JUNGLE_WOOD_WALL_SIGN.texture = new ResourceLocation("block/stripped_jungle_log");
+    STRIPPED_ACACIA_WOOD_WALL_SIGN.texture = new ResourceLocation("block/stripped_acacia_log");
+    STRIPPED_CHERRY_WOOD_WALL_SIGN.texture = new ResourceLocation("block/stripped_cherry_log");
+    STRIPPED_DARK_OAK_WOOD_WALL_SIGN.texture = new ResourceLocation("block/stripped_dark_oak_log");
+    STRIPPED_MANGROVE_WOOD_WALL_SIGN.texture = new ResourceLocation("block/stripped_mangrove_log");
+    STRIPPED_CRIMSON_HYPHAE_WALL_SIGN.texture = new ResourceLocation("block/stripped_crimson_stem");
+    STRIPPED_WARPED_HYPHAE_WALL_SIGN.texture = new ResourceLocation("block/stripped_warped_stem");
   }
 
   public static final WallSignBlock OAK_WALL_SIGN =
@@ -124,15 +124,15 @@ public final class WallSignBlocks extends MishangucBlocks {
 
   @ApiStatus.AvailableSince("1.0.4-mc1.19.3")
   @MiningLevel(MiningLevel.Tool.AXE)
-  public static final WallSignBlock BAMBOO_WALL_SIGN = new WallSignBlock(Blocks.BAMBOO_BLOCK, FabricBlockSettings.copyOf(Blocks.BAMBOO_BLOCK).mapColor(MapColor.DARK_GREEN));
+  public static final WallSignBlock BAMBOO_WALL_SIGN = new WallSignBlock(Blocks.BAMBOO_BLOCK, BlockBehaviour.Properties.copy(Blocks.BAMBOO_BLOCK).mapColor(MapColor.PLANT));
 
   @ApiStatus.AvailableSince("1.0.4-mc1.19.3")
   @MiningLevel(MiningLevel.Tool.AXE)
-  public static final WallSignBlock BAMBOO_PLANK_WALL_SIGN = new WallSignBlock(Blocks.BAMBOO_PLANKS, FabricBlockSettings.copyOf(Blocks.BAMBOO_PLANKS));
+  public static final WallSignBlock BAMBOO_PLANK_WALL_SIGN = new WallSignBlock(Blocks.BAMBOO_PLANKS, BlockBehaviour.Properties.copy(Blocks.BAMBOO_PLANKS));
 
   @ApiStatus.AvailableSince("1.0.4-mc1.19.3")
   @MiningLevel(MiningLevel.Tool.AXE)
-  public static final WallSignBlock BAMBOO_MOSAIC_WALL_SIGN = new WallSignBlock(Blocks.BAMBOO_MOSAIC, FabricBlockSettings.copyOf(Blocks.BAMBOO_MOSAIC));
+  public static final WallSignBlock BAMBOO_MOSAIC_WALL_SIGN = new WallSignBlock(Blocks.BAMBOO_MOSAIC, BlockBehaviour.Properties.copy(Blocks.BAMBOO_MOSAIC));
 
   @ApiStatus.AvailableSince("0.2.2")
   public static final ColoredWallSignBlock COLORED_WOODEN_WALL_SIGN = new ColoredWallSignBlock(ColoredBlocks.COLORED_PLANKS);
@@ -537,10 +537,10 @@ public final class WallSignBlocks extends MishangucBlocks {
   public static final GlowingWallSignBlock GLOWING_POLISHED_BLACKSTONE_WALL_SIGN = new GlowingWallSignBlock(Blocks.POLISHED_BLACKSTONE);
 
   static {
-    GLOWING_NETHERRACK_WALL_SIGN.glowTexture = new Identifier("block/lava_still");
-    GLOWING_NETHER_BRICK_WALL_SIGN.glowTexture = new Identifier("block/lava_still");
-    GLOWING_BLACKSTONE_WALL_SIGN.glowTexture = new Identifier("block/glowstone");
-    GLOWING_POLISHED_BLACKSTONE_WALL_SIGN.glowTexture = new Identifier("block/glowstone");
+    GLOWING_NETHERRACK_WALL_SIGN.glowTexture = new ResourceLocation("block/lava_still");
+    GLOWING_NETHER_BRICK_WALL_SIGN.glowTexture = new ResourceLocation("block/lava_still");
+    GLOWING_BLACKSTONE_WALL_SIGN.glowTexture = new ResourceLocation("block/glowstone");
+    GLOWING_POLISHED_BLACKSTONE_WALL_SIGN.glowTexture = new ResourceLocation("block/glowstone");
   }
 
   // 雪
@@ -564,8 +564,8 @@ public final class WallSignBlocks extends MishangucBlocks {
   public static final GlowingWallSignBlock GLOWING_BLUE_ICE_WALL_SIGN = new GlowingWallSignBlock(Blocks.BLUE_ICE);
 
   static {
-    SNOW_WALL_SIGN.texture = new Identifier("block/snow");
-    GLOWING_SNOW_WALL_SIGN.texture = new Identifier("block/snow");
+    SNOW_WALL_SIGN.texture = new ResourceLocation("block/snow");
+    GLOWING_SNOW_WALL_SIGN.texture = new ResourceLocation("block/snow");
   }
 
   // 完整的混凝土

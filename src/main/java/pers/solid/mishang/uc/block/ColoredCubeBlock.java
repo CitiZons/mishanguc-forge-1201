@@ -1,17 +1,24 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.client.*;
-import net.minecraft.data.server.loottable.BlockLootTableGenerator;
-import net.minecraft.item.ItemStack;
-import net.minecraft.loot.LootTable;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.BlockView;
+import pers.solid.mishang.uc.data.stubs.FabricBlockLootTableProvider;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.item.TooltipFlag;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.TextureKey;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.Model;
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import net.minecraft.data.loot.BlockLootSubProvider;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.BlockGetter;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.blockentity.SimpleColoredBlockEntity;
@@ -29,41 +36,41 @@ public class ColoredCubeBlock extends Block implements ColoredBlock {
   public static final Model COLORED_CUBE_ALL_WITHOUT_SHADE = MishangucModels.createBlock("colored_cube_all_without_shade", TextureKey.ALL);
 
   @ApiStatus.Internal
-  public ColoredCubeBlock(Settings settings, Model model, TextureMap textures) {
+  public ColoredCubeBlock(Properties settings, Model model, TextureMap textures) {
     super(settings);
     this.model = model;
     this.textures = textures;
   }
 
-  public static ColoredCubeBlock cubeAll(Settings settings, String allTexture) {
-    return new ColoredCubeBlock(settings, COLORED_CUBE_ALL, TextureMap.all(new Identifier(allTexture)));
+  public static ColoredCubeBlock cubeAll(Properties settings, String allTexture) {
+    return new ColoredCubeBlock(settings, COLORED_CUBE_ALL, TextureMap.all(new ResourceLocation(allTexture)));
   }
 
-  public static ColoredCubeBlock cubeBottomTop(Settings settings, String topTexture, String sideTexture, String bottomTexture) {
-    return new ColoredCubeBlock(settings, COLORED_CUBE_BOTTOM_TOP, TextureMap.of(TextureKey.TOP, new Identifier(topTexture)).put(TextureKey.SIDE, new Identifier(sideTexture)).put(TextureKey.BOTTOM, new Identifier(bottomTexture)));
-  }
-
-  @Override
-  public ItemStack getPickStack(BlockView world, BlockPos pos, BlockState state) {
-    return getColoredPickStack(world, pos, state, super::getPickStack);
+  public static ColoredCubeBlock cubeBottomTop(Properties settings, String topTexture, String sideTexture, String bottomTexture) {
+    return new ColoredCubeBlock(settings, COLORED_CUBE_BOTTOM_TOP, TextureMap.of(TextureKey.TOP, new ResourceLocation(topTexture)).put(TextureKey.SIDE, new ResourceLocation(sideTexture)).put(TextureKey.BOTTOM, new ResourceLocation(bottomTexture)));
   }
 
   @Override
-  public void appendTooltip(ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
-    super.appendTooltip(stack, world, tooltip, options);
+  public ItemStack getCloneItemStack(BlockGetter world, BlockPos pos, BlockState state) {
+    return getColoredPickStack(world, pos, state, super::getCloneItemStack);
+  }
+
+  @Override
+  public void appendHoverText(ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
+    super.appendHoverText(stack, world, tooltip, options);
     ColoredBlock.appendColorTooltip(stack, tooltip);
   }
 
   @Nullable
   @Override
-  public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+  public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
     return new SimpleColoredBlockEntity(pos, state);
   }
 
   @Override
-  public LootTable.Builder getLootTable(BlockLootTableGenerator blockLootTableGenerator) {
+  public LootTable.Builder getLootTable(FabricBlockLootTableProvider blockLootTableGenerator) {
     if (this == ColoredBlocks.COLORED_PACKED_ICE) {
-      return BlockLootTableGenerator.dropsWithSilkTouch(this).apply(COPY_COLOR_LOOT_FUNCTION);
+      return FabricBlockLootTableProvider.createSilkTouchOnlyTable(this).apply(COPY_COLOR_LOOT_FUNCTION);
     } else if (this == ColoredBlocks.COLORED_STONE) {
       return blockLootTableGenerator.drops(this, ColoredBlocks.COLORED_COBBLESTONE).apply(COPY_COLOR_LOOT_FUNCTION);
     }
@@ -73,19 +80,19 @@ public class ColoredCubeBlock extends Block implements ColoredBlock {
   @Override
   public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
     if (this == ColoredBlocks.COLORED_STONE) {
-      final Identifier modelId = ColoredCubeBlock.COLORED_CUBE_ALL.upload(this, textures, blockStateModelGenerator.modelCollector);
-      final Identifier mirroredModelId = ColoredCubeBlock.COLORED_CUBE_MIRRORED_ALL.upload(this, textures, blockStateModelGenerator.modelCollector);
+      final ResourceLocation modelId = ColoredCubeBlock.COLORED_CUBE_ALL.upload(this, textures, blockStateModelGenerator.modelCollector);
+      final ResourceLocation mirroredModelId = ColoredCubeBlock.COLORED_CUBE_MIRRORED_ALL.upload(this, textures, blockStateModelGenerator.modelCollector);
 
       blockStateModelGenerator.blockStateCollector.accept(BlockStateModelGenerator.createBlockStateWithTwoModelAndRandomInversion(this, modelId, mirroredModelId));
       return;
     }
-    final Identifier modelId = model.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation modelId = model.upload(this, textures, blockStateModelGenerator.modelCollector);
     blockStateModelGenerator.blockStateCollector.accept(BlockStateModelGenerator.createSingletonBlockState(this, modelId));
     blockStateModelGenerator.registerParentedItemModel(this, modelId);
   }
 
   @Override
-  public Identifier getTexture(TextureKey key) {
+  public ResourceLocation getTexture(TextureKey key) {
     return textures.getTexture(key);
   }
 }

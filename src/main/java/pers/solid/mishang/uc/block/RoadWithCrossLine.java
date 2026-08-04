@@ -1,17 +1,20 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.client.BlockStateModelGenerator;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.data.server.recipe.ShapedRecipeJsonBuilder;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Direction;
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.item.TooltipFlag;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+// TODO: Forge data gen - BlockStateModelGenerator
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.ShapedRecipeBuilder;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.Direction;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.data.FasterTextureMap;
 import pers.solid.mishang.uc.data.MishangucTextureKeys;
@@ -28,35 +31,34 @@ public interface RoadWithCrossLine extends Road {
   }
 
   class Impl extends AbstractRoadBlock implements RoadWithCrossLine {
-    public Impl(Settings settings, LineColor lineColor) {
+    public Impl(Properties settings, LineColor lineColor) {
       super(settings, lineColor, LineType.NORMAL);
     }
 
     @Override
-    public void appendDescriptionTooltip(List<Text> tooltip, TooltipContext options) {
-      tooltip.add(TextBridge.translatable("lineType.cross.composed", lineColor.getName(), lineType.getName()).formatted(Formatting.BLUE));
+    public void appendDescriptionTooltip(List<Component> tooltip, TooltipFlag options) {
+      tooltip.add(TextBridge.translatable("lineType.cross.composed", lineColor.getName(), lineType.getName()).withStyle(ChatFormatting.BLUE));
     }
 
     @Override
     protected <B extends Block & Road> void registerBaseOrSlabModels(B road, BlockStateModelGenerator blockStateModelGenerator) {
       final FasterTextureMap textures = new FasterTextureMap().base("asphalt")
           .lineSide(MishangUtils.composeStraightLineTexture(lineColor, LineType.NORMAL))
-          .lineTop(lineColor.asString() + "_cross_line");
-      final Identifier modelId = road.uploadModel("_with_cross_line", textures, blockStateModelGenerator, MishangucTextureKeys.BASE, MishangucTextureKeys.LINE_SIDE, MishangucTextureKeys.LINE_TOP);
+          .lineTop(lineColor.getSerializedName() + "_cross_line");
+      final ResourceLocation modelId = road.uploadModel("_with_cross_line", textures, blockStateModelGenerator, MishangucTextureKeys.BASE, MishangucTextureKeys.LINE_SIDE, MishangucTextureKeys.LINE_TOP);
       blockStateModelGenerator.blockStateCollector.accept(road.composeState(BlockStateModelGenerator.createBlockStateWithRandomHorizontalRotations(road, modelId)));
     }
 
-
     @Override
-    public CraftingRecipeJsonBuilder getPaintingRecipe(Block base, Block self) {
-      return ShapedRecipeJsonBuilder.create(RecipeCategory.BUILDING_BLOCKS, self, 4)
+    public RecipeBuilder getPaintingRecipe(Block base, Block self) {
+      return ShapedRecipeBuilder.shaped(RecipeCategory.BUILDING_BLOCKS, self, 4)
           .pattern("*X*")
           .pattern("X*X")
           .pattern("*X*")
-          .input('*', lineColor.getIngredient())
-          .input('X', base)
-          .criterion("has_ingredient", RecipeProvider.conditionsFromTag(lineColor.getIngredient()))
-          .criterion(RecipeProvider.hasItem(base), RecipeProvider.conditionsFromItem(base));
+          .define('*', lineColor.getIngredient())
+          .define('X', base)
+          .unlockedBy("has_ingredient", FabricRecipeProvider.has(lineColor.getIngredient()))
+          .unlockedBy(FabricRecipeProvider.getHasName(base), FabricRecipeProvider.has(base));
     }
   }
 }

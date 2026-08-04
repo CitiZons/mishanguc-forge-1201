@@ -1,34 +1,36 @@
 package pers.solid.mishang.uc.block;
 
+import pers.solid.mishang.uc.data.stubs.FabricBlockLootTableProvider;
+
 import com.google.common.collect.Maps;
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.Waterloggable;
-import net.minecraft.data.client.BlockStateSupplier;
-import net.minecraft.data.server.loottable.BlockLootTableGenerator;
-import net.minecraft.entity.ai.pathing.NavigationType;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.loot.LootTable;
-import net.minecraft.loot.provider.number.ConstantLootNumberProvider;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.WorldAccess;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.level.block.SimpleWaterloggedBlock;
+import pers.solid.mishang.uc.data.stubs.BlockStateSupplier;
+import net.minecraft.data.loot.BlockLootSubProvider;
+import net.minecraft.world.level.pathfinder.PathComputationType;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.LevelAccessor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.MishangUtils;
@@ -38,56 +40,56 @@ import pers.solid.mishang.uc.util.HorizontalCornerDirection;
 
 import java.util.Map;
 
-public abstract class HandrailCornerBlock<T extends HandrailBlock> extends Block implements Waterloggable, MishangucBlock, Handrails {
+public abstract class HandrailCornerBlock<T extends HandrailBlock> extends Block implements SimpleWaterloggedBlock, MishangucBlock, Handrails {
   /**
    * 该方块的基础的栏杆方块。
    */
   public static final EnumProperty<HorizontalCornerDirection> FACING = MishangucProperties.HORIZONTAL_CORNER_FACING;
-  public static final BooleanProperty WATERLOGGED = Properties.WATERLOGGED;
+  public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
   public final @NotNull T baseHandrail;
   public static final Map<HorizontalCornerDirection, VoxelShape> SHAPES = Util.make(() -> {
     final Map<Direction, @Nullable VoxelShape> shapes1 = MishangUtils.createHorizontalDirectionToShape(0, 0, 0.5, 15, 16, 2.5);
     final Map<Direction, @Nullable VoxelShape> shapes2 = MishangUtils.createHorizontalDirectionToShape(0.5, 0, 1, 16, 16, 2.5);
-    return Direction.Type.HORIZONTAL.stream().collect(Maps.toImmutableEnumMap(direction -> HorizontalCornerDirection.fromDirections(direction, direction.rotateYClockwise()), direction -> VoxelShapes.union(shapes1.get(direction), shapes2.get(direction.rotateYClockwise()))));
+    return Direction.Plane.HORIZONTAL.stream().collect(Maps.toImmutableEnumMap(direction -> HorizontalCornerDirection.fromDirections(direction, direction.getClockWise()), direction -> Shapes.or(shapes1.get(direction), shapes2.get(direction.getClockWise()))));
   });
 
-  public HandrailCornerBlock(@NotNull T baseHandrail, Settings settings) {
+  public HandrailCornerBlock(@NotNull T baseHandrail, Properties settings) {
     super(settings);
-    setDefaultState(getDefaultState().with(WATERLOGGED, false).with(FACING, HorizontalCornerDirection.SOUTH_WEST));
+    registerDefaultState(defaultBlockState().setValue(WATERLOGGED, false).setValue(FACING, HorizontalCornerDirection.SOUTH_WEST));
     this.baseHandrail = baseHandrail;
   }
 
   public HandrailCornerBlock(@NotNull T baseHandrail) {
-    this(baseHandrail, FabricBlockSettings.copyOf(baseHandrail));
+    this(baseHandrail, BlockBehaviour.Properties.copy(baseHandrail));
   }
 
   @Override
-  protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-    super.appendProperties(builder);
+  protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    super.createBlockStateDefinition(builder);
     builder.add(WATERLOGGED, FACING);
   }
 
   @Nullable
   @Override
-  public BlockState getPlacementState(ItemPlacementContext ctx) {
-    final BlockState placementState = super.getPlacementState(ctx);
+  public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+    final BlockState placementState = super.getStateForPlacement(ctx);
     if (placementState == null) return null;
-    return placementState.with(FACING, HorizontalCornerDirection.fromRotation(ctx.getPlayerYaw())).with(WATERLOGGED, ctx.getWorld().getFluidState(ctx.getBlockPos()).getFluid() == Fluids.WATER);
+    return placementState.setValue(FACING, HorizontalCornerDirection.fromRotation(ctx.getRotation())).setValue(WATERLOGGED, ctx.getLevel().getFluidState(ctx.getClickedPos()).getType() == Fluids.WATER);
   }
 
   @SuppressWarnings("deprecation")
   @Override
   public FluidState getFluidState(BlockState state) {
-    return state.get(WATERLOGGED) ? Fluids.WATER.getStill(false) : super.getFluidState(state);
+    return state.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(state);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-    if (state.get(WATERLOGGED)) {
-      world.scheduleFluidTick(pos, Fluids.WATER, Fluids.WATER.getTickRate(world));
+  public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+    if (state.getValue(WATERLOGGED)) {
+      world.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(world));
     }
-    return super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos);
+    return super.updateShape(state, direction, neighborState, world, pos, neighborPos);
   }
 
   @Override
@@ -95,44 +97,44 @@ public abstract class HandrailCornerBlock<T extends HandrailBlock> extends Block
     return baseHandrail.asItem();
   }
 
-  public @NotNull BlockStateSupplier createBlockStates(Identifier modelId) {
+  public @NotNull BlockStateSupplier createBlockStates(ResourceLocation modelId) {
     return ModelHelper.stateForHorizontalCornerFacingBlock(this, modelId, true);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-    return SHAPES.get(state.get(FACING));
+  public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+    return SHAPES.get(state.getValue(FACING));
   }
 
   @Override
-  public LootTable.Builder getLootTable(BlockLootTableGenerator blockLootTableGenerator) {
-    return blockLootTableGenerator.drops(this, ConstantLootNumberProvider.create(2));
+  public LootTable.Builder getLootTable(FabricBlockLootTableProvider blockLootTableGenerator) {
+    return blockLootTableGenerator.drops(this, ConstantValue.exactly(2));
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState rotate(BlockState state, BlockRotation rotation) {
+  public BlockState rotate(BlockState state, Rotation rotation) {
     return super.rotate(state, rotation)
-        .with(FACING, state.get(FACING).rotate(rotation));
+        .setValue(FACING, state.getValue(FACING).rotate(rotation));
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState mirror(BlockState state, BlockMirror mirror) {
+  public BlockState mirror(BlockState state, Mirror mirror) {
     return super.mirror(state, mirror)
-        .with(FACING, state.get(FACING).mirror(mirror));
+        .setValue(FACING, state.getValue(FACING).mirror(mirror));
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public boolean isSideInvisible(BlockState state, BlockState stateFrom, Direction direction) {
+  public boolean skipRendering(BlockState state, BlockState stateFrom, Direction direction) {
     final Block block = stateFrom.getBlock();
     if (direction.getAxis().isHorizontal() && block instanceof final Handrails handrails) {
       return block.asItem() == asItem()
-          && handrails.connectsIn(stateFrom, direction.getOpposite(), state.get(FACING).getDirectionInAxis(direction.rotateYClockwise().getAxis()));
+          && handrails.connectsIn(stateFrom, direction.getOpposite(), state.getValue(FACING).getDirectionInAxis(direction.getClockWise().getAxis()));
     }
-    return super.isSideInvisible(state, stateFrom, direction);
+    return super.skipRendering(state, stateFrom, direction);
   }
 
   @Override
@@ -142,13 +144,13 @@ public abstract class HandrailCornerBlock<T extends HandrailBlock> extends Block
 
   @Override
   public boolean connectsIn(@NotNull BlockState blockState, @NotNull Direction direction, @Nullable Direction offsetFacing) {
-    final HorizontalCornerDirection facing = blockState.get(FACING);
+    final HorizontalCornerDirection facing = blockState.getValue(FACING);
     return offsetFacing != null && facing.hasDirection(direction) && facing.hasDirection(offsetFacing);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public boolean canPathfindThrough(BlockState state, BlockView world, BlockPos pos, NavigationType type) {
+  public boolean isPathfindable(BlockState state, BlockGetter world, BlockPos pos, PathComputationType type) {
     return false;
   }
 }

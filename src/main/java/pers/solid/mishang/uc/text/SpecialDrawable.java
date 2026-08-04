@@ -1,14 +1,14 @@
 package pers.solid.mishang.uc.text;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.text.MutableText;
-import net.minecraft.util.Identifier;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.MultiBufferSource;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -18,7 +18,7 @@ import pers.solid.mishang.uc.util.TextBridge;
 import java.util.Collection;
 
 /**
- * <p>SpecialDrawable 是一个 TextContext 中可以特殊渲染的内容，它可以是图片、图形等。可以通过 {@link #fromNbt} 与 {@link #writeNbt} 实现 SpecialDrawable 与 NBT 中的转换。当 TextContext 中的 {@link TextContext#extra} 字段不为 {@code null} 时，渲染时就会使用 {@link SpecialDrawable#drawExtra}，渲染的大小取决于 {@link TextContext#size}，{@link SpecialDrawable} 对象自身一般不会存储渲染大小。</p>
+ * <p>SpecialDrawable 是一个 TextContext 中可以特殊渲染的内容，它可以是图片、图形等。可以通过 {@link #fromNbt} 与 {@link #saveAdditional} 实现 SpecialDrawable 与 NBT 中的转换。当 TextContext 中的 {@link TextContext#extra} 字段不为 {@code null} 时，渲染时就会使用 {@link SpecialDrawable#drawExtra}，渲染的大小取决于 {@link TextContext#size}，{@link SpecialDrawable} 对象自身一般不会存储渲染大小。</p>
  * <p>为了便于序列化和反序列化，每一类 SpecialDrawable 都有一个对应的类型对象，即 {@link SpecialDrawableType}，它指定了这一类的对象该如何进行反序列化。</p>
  *
  * @since 0.2.4 由 {@code TextSpecial} 更名为 {@code SpecialDrawable}
@@ -28,9 +28,9 @@ public interface SpecialDrawable extends Cloneable {
    * 表示一个无效的 SpecialDrawable 对象，通常用于解析无效的情况。
    */
   SpecialDrawable INVALID = new SpecialDrawable() {
-    @Environment(EnvType.CLIENT)
+    @OnlyIn(Dist.CLIENT)
     @Override
-    public void drawExtra(TextRenderer textRenderer, MatrixStack matrixStack, VertexConsumerProvider vertexConsumers, int light, float x, float y) {
+    public void drawExtra(Font font, PoseStack matrixStack, MultiBufferSource vertexConsumers, int light, float x, float y) {
     }
 
     @Override
@@ -52,10 +52,10 @@ public interface SpecialDrawable extends Cloneable {
   /**
    * <p>渲染该对象。在 {@link TextContext#draw} 中，如果 {@link TextContext#extra} 不为 {@code null}，则会使用这个方法。</p>
    * <p>注意在 {@link TextContext#draw} 中，其渲染的大小会根据 {@link TextContext#size} 调整，并调整好渲染的位置，即根据 {@link #width()} 和 {@link #height()} 进行偏移。因此，这里的渲染通常从矩阵零点开始渲染，即将矩阵的零点位置视为左上角。</p>
-   * <p>实现此方法时，必须注解 {@code @Environment(EnvType.CLIENT)}。</p>
+   * <p>实现此方法时，必须注解 {@code @OnlyIn(Dist.CLIENT)}。</p>
    */
-  @Environment(EnvType.CLIENT)
-  void drawExtra(TextRenderer textRenderer, MatrixStack matrixStack, VertexConsumerProvider vertexConsumers, int light, float x, float y);
+  @OnlyIn(Dist.CLIENT)
+  void drawExtra(Font font, PoseStack matrixStack, MultiBufferSource vertexConsumers, int light, float x, float y);
 
   /**
    * 这一类 SpecialDrawable 对象的 id，通常是一个字符串，并且应该要被 {@link #fromNbt} 和 {@link #fromStringArgs} 识别。同一类对象返回的 id 应该相同，因此覆盖此方法时，通常是返回一个常量。
@@ -64,7 +64,7 @@ public interface SpecialDrawable extends Cloneable {
    */
   @Contract(pure = true)
   default @NotNull String getId() {
-    final Identifier id = getType().getId();
+    final ResourceLocation id = getType().getId();
     if (id.getNamespace().equals("mishanguc")) {
       return id.getPath();
     } else {
@@ -84,14 +84,14 @@ public interface SpecialDrawable extends Cloneable {
   SpecialDrawableType<? extends SpecialDrawable> getType();
 
   @Contract(mutates = "param1")
-  default void writeNbt(NbtCompound nbt) {
+  default void saveAdditional(CompoundTag nbt) {
     nbt.putString("id", getId());
   }
 
   @ApiStatus.AvailableSince("0.2.4")
-  default NbtCompound createNbt() {
-    final NbtCompound nbt = new NbtCompound();
-    writeNbt(nbt);
+  default CompoundTag createNbt() {
+    final CompoundTag nbt = new CompoundTag();
+    saveAdditional(nbt);
     return nbt;
   }
 
@@ -99,7 +99,7 @@ public interface SpecialDrawable extends Cloneable {
    * 根据已有的 TextContext 对象和一段 nbt，返回一个新的 SpecialDrawable 对象。通常来说，先识别该 nbt 中的 {@code id} 标签（通常与各个子类的 {@link #getId()} 方法相同），然后再形成对应的对象。
    */
   @Contract("_, _ -> new")
-  static @Nullable SpecialDrawable fromNbt(TextContext textContext, @NotNull NbtCompound nbt) {
+  static @Nullable SpecialDrawable fromNbt(TextContext textContext, @NotNull CompoundTag nbt) {
     final String id = nbt.getString("id");
     if (id == null) {
       return null;
@@ -154,7 +154,7 @@ public interface SpecialDrawable extends Cloneable {
   @ApiStatus.Internal
   SpecialDrawable cloneWithNewTextContext(@NotNull TextContext textContext);
 
-  default @NotNull MutableText asStyledText() {
+  default @NotNull MutableComponent asStyledText() {
     return TextBridge.literal(getType().getId().getPath() + " " + asStringArgs());
   }
 }

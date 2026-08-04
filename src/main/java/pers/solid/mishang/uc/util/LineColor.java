@@ -1,15 +1,15 @@
 package pers.solid.mishang.uc.util;
 
-import net.fabricmc.fabric.api.tag.convention.v1.ConventionalItemTags;
-import net.minecraft.item.Item;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.text.MutableText;
-import net.minecraft.util.StringIdentifiable;
+import net.minecraft.world.item.Item;
+import net.minecraft.tags.TagKey;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.StringRepresentable;
+import pers.solid.mishang.uc.data.stubs.ConventionalItemTags;
 
 /**
  * 道路标线颜色，目前分为白色和黄色。
  */
-public enum LineColor implements StringIdentifiable {
+public enum LineColor implements StringRepresentable {
   WHITE("white", ConventionalItemTags.WHITE_DYES),
   YELLOW("yellow", ConventionalItemTags.YELLOW_DYES),
   UNKNOWN("unknown", null),
@@ -24,11 +24,11 @@ public enum LineColor implements StringIdentifiable {
   }
 
   @Override
-  public String asString() {
+  public String getSerializedName() {
     return name;
   }
 
-  public MutableText getName() {
+  public MutableComponent getName() {
     return TextBridge.translatable("lineColor.mishanguc." + name);
   }
 

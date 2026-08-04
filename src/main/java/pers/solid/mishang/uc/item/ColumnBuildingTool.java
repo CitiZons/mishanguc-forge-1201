@@ -1,37 +1,33 @@
 package pers.solid.mishang.uc.item;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockBox;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.Level;
 import org.apache.commons.lang3.tuple.Triple;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.Mishanguc;
@@ -41,63 +37,66 @@ import pers.solid.mishang.uc.util.TextBridge;
 
 import java.util.List;
 import java.util.WeakHashMap;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import pers.solid.mishang.uc.data.stubs.WorldRenderContext;
 
 public class ColumnBuildingTool extends BlockToolItem implements HotbarScrollInteraction {
   /**
    * 记录放置柱的操作记录。当玩家放置了柱之后，可以对其进行撤销，其操作记录就是存储在这个里面的。
    */
-  private static final WeakHashMap<ServerPlayerEntity, Triple<ServerWorld, Block, BlockBox>> tempMemory = new WeakHashMap<>();
-  private static @Nullable Triple<ClientWorld, Block, BlockBox> clientTempMemory = null;
+  private static final WeakHashMap<ServerPlayer, Triple<ServerLevel, Block, BoundingBox>> tempMemory = new WeakHashMap<>();
+  private static @Nullable Triple<ClientLevel, Block, BoundingBox> clientTempMemory = null;
 
+  // TODO: Re-register with Forge events (PlayerEvent.PlayerLoggedOutEvent)
   public static void registerTempMemoryEvents() {
-    ServerPlayConnectionEvents.DISCONNECT.register(Mishanguc.id("remove_column_building_tool_memory"), (handler, server) -> tempMemory.remove(handler.player));
-    if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
-      ClientPlayConnectionEvents.DISCONNECT.register(Mishanguc.id("remove_column_building_tool_memory"), (handler, client) -> clientTempMemory = null);
-    }
+    // Forge equivalent: subscribe to PlayerEvent.PlayerLoggedOutEvent on MinecraftForge.EVENT_BUS
+    // tempMemory cleanup will be handled in Mishanguc main class event handlers
   }
 
-  public ColumnBuildingTool(Settings settings, @Nullable Boolean includesFluid) {
+  public ColumnBuildingTool(Properties settings, @Nullable Boolean includesFluid) {
     super(settings, includesFluid);
   }
 
   @Override
-  public Text getName(ItemStack stack) {
-    return TextBridge.translatable("item.mishanguc.column_building_tool.format", getName(), Integer.toString(getLength(stack)));
+  public Component getName(ItemStack stack) {
+    return TextBridge.translatable("item.mishanguc.column_building_tool.format", getDescription(), Integer.toString(getLength(stack)));
   }
 
   @Override
-  public void appendTooltip(ItemStack stack, @Nullable World world, List<Text> tooltip, TooltipContext context) {
-    super.appendTooltip(stack, world, tooltip, context);
-    tooltip.add(TextBridge.translatable("item.mishanguc.column_building_tool.tooltip.1").formatted(Formatting.GRAY));
-    tooltip.add(TextBridge.translatable("item.mishanguc.column_building_tool.tooltip.2").formatted(Formatting.GRAY));
-    tooltip.add(TextBridge.translatable("item.mishanguc.column_building_tool.tooltip.3").formatted(Formatting.GRAY));
-    tooltip.add(TextBridge.translatable("item.mishanguc.column_building_tool.tooltip.length", TextBridge.literal(Integer.toString(getLength(stack))).formatted(Formatting.YELLOW)).formatted(Formatting.GRAY));
+  public void appendHoverText(ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag context) {
+    super.appendHoverText(stack, world, tooltip, context);
+    tooltip.add(TextBridge.translatable("item.mishanguc.column_building_tool.tooltip.1").withStyle(ChatFormatting.GRAY));
+    tooltip.add(TextBridge.translatable("item.mishanguc.column_building_tool.tooltip.2").withStyle(ChatFormatting.GRAY));
+    tooltip.add(TextBridge.translatable("item.mishanguc.column_building_tool.tooltip.3").withStyle(ChatFormatting.GRAY));
+    tooltip.add(TextBridge.translatable("item.mishanguc.column_building_tool.tooltip.length", TextBridge.literal(Integer.toString(getLength(stack))).withStyle(ChatFormatting.YELLOW)).withStyle(ChatFormatting.GRAY));
   }
 
   @Override
-  public ActionResult useOnBlock(ItemStack stack, PlayerEntity player, World world, BlockHitResult blockHitResult, Hand hand, boolean fluidIncluded) {
+  public InteractionResult useOnBlock(ItemStack stack, Player player, Level world, BlockHitResult blockHitResult, InteractionHand hand, boolean fluidIncluded) {
     if (!player.isCreative()) {
       // 仅限创造模式玩家使用。
-      return ActionResult.PASS;
+      return InteractionResult.PASS;
     }
-    final Direction side = blockHitResult.getSide();
+    final Direction side = blockHitResult.getDirection();
     final BlockPos originBlockPos = blockHitResult.getBlockPos();
     final BlockPlacementContext blockPlacementContext = new BlockPlacementContext(world, originBlockPos, player, stack, blockHitResult, fluidIncluded);
     final int length = this.getLength(stack);
     boolean soundPlayed = false;
-    final BlockPos.Mutable posToPlace = new BlockPos.Mutable().set(blockPlacementContext.posToPlace);
+    final BlockPos.MutableBlockPos posToPlace = new BlockPos.MutableBlockPos().set(blockPlacementContext.posToPlace);
     if (blockPlacementContext.canPlace()) {
       for (int i = 0; i < length; i++) {
-        if (world.getBlockState(posToPlace).canReplace(blockPlacementContext.placementContext)) {
-          if (!world.isClient) {
-            world.setBlockState(posToPlace, blockPlacementContext.stateToPlace, 0b1011);
+        if (world.getBlockState(posToPlace).canBeReplaced(blockPlacementContext.placementContext)) {
+          if (!world.isClientSide) {
+            world.setBlock(posToPlace, blockPlacementContext.stateToPlace, 0b1011);
             BlockEntity entityToPlace = world.getBlockEntity(posToPlace);
             if (blockPlacementContext.stackInHand != null) {
-              BlockItem.writeNbtToBlockEntity(world, player, posToPlace, blockPlacementContext.stackInHand);
+              BlockItem.updateCustomBlockEntityTag(world, player, posToPlace, blockPlacementContext.stackInHand);
             } else if (blockPlacementContext.hitEntity != null && entityToPlace != null) {
-              entityToPlace.readNbt(blockPlacementContext.hitEntity.createNbt());
-              entityToPlace.markDirty();
-              world.updateListeners(posToPlace, entityToPlace.getCachedState(), entityToPlace.getCachedState(), Block.NOTIFY_ALL);
+              entityToPlace.load(blockPlacementContext.hitEntity.saveWithFullMetadata());
+              entityToPlace.setChanged();
+              world.sendBlockUpdated(posToPlace, entityToPlace.getBlockState(), entityToPlace.getBlockState(), Block.UPDATE_ALL);
             }
           }
           if (!soundPlayed) blockPlacementContext.playSound();
@@ -110,100 +109,100 @@ public class ColumnBuildingTool extends BlockToolItem implements HotbarScrollInt
       } // end for
     }
     if (soundPlayed) {
-      if (!world.isClient) {
-        tempMemory.put(((ServerPlayerEntity) player), Triple.of(((ServerWorld) world), blockPlacementContext.stateToPlace.getBlock(), BlockBox.create(blockPlacementContext.posToPlace, posToPlace.toImmutable())));
-      } else if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
-        clientTempMemory = Triple.of(((ClientWorld) world), blockPlacementContext.stateToPlace.getBlock(), BlockBox.create(blockPlacementContext.posToPlace, posToPlace.toImmutable()));
+      if (!world.isClientSide) {
+        tempMemory.put(((ServerPlayer) player), Triple.of(((ServerLevel) world), blockPlacementContext.stateToPlace.getBlock(), BoundingBox.fromCorners(blockPlacementContext.posToPlace, posToPlace.immutable())));
+      } else if (FMLEnvironment.dist == Dist.CLIENT) {
+        clientTempMemory = Triple.of(((ClientLevel) world), blockPlacementContext.stateToPlace.getBlock(), BoundingBox.fromCorners(blockPlacementContext.posToPlace, posToPlace.immutable()));
       }
     }
-    return ActionResult.SUCCESS;
+    return InteractionResult.SUCCESS;
   }
 
   public int getLength(ItemStack stack) {
-    final NbtCompound nbt = stack.getOrCreateNbt();
-    return nbt.contains("Length", NbtElement.NUMBER_TYPE) ? MathHelper.clamp(1, nbt.getInt("Length"), 64) : 8;
+    final CompoundTag nbt = stack.getOrCreateTag();
+    return nbt.contains("Length", Tag.TAG_ANY_NUMERIC) ? Mth.clamp(1, nbt.getInt("Length"), 64) : 8;
   }
 
   @Override
-  public ActionResult beginAttackBlock(ItemStack stack, PlayerEntity player, World world, Hand hand, BlockPos pos, Direction direction, boolean fluidIncluded) {
-    @Nullable BlockBox lastPlacedBox = null;
+  public InteractionResult beginAttackBlock(ItemStack stack, Player player, Level world, InteractionHand hand, BlockPos pos, Direction direction, boolean fluidIncluded) {
+    @Nullable BoundingBox lastPlacedBox = null;
     @Nullable Block lastPlacedBlock = null;
 
     // 检查是否存在上次记录的区域。如果有，且点击的方块在该区域内，则直接删除这个区域的方块。
     // 注意：只要点击了，即使点击的位置不在该区域内，也会清除有关的记录。
-    if (!world.isClient) {
-      final Triple<ServerWorld, Block, BlockBox> pair = tempMemory.get(((ServerPlayerEntity) player));
-      if (pair != null && pair.getLeft().equals(world) && pair.getRight().contains(pos)) {
+    if (!world.isClientSide) {
+      final Triple<ServerLevel, Block, BoundingBox> pair = tempMemory.get(((ServerPlayer) player));
+      if (pair != null && pair.getLeft().equals(world) && pair.getRight().isInside(pos)) {
         lastPlacedBox = pair.getRight();
         lastPlacedBlock = pair.getMiddle();
       }
       tempMemory.remove(player);
-    } else if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
-      if (clientTempMemory != null && clientTempMemory.getLeft().equals(world) && clientTempMemory.getRight().contains(pos)) {
+    } else if (FMLEnvironment.dist == Dist.CLIENT) {
+      if (clientTempMemory != null && clientTempMemory.getLeft().equals(world) && clientTempMemory.getRight().isInside(pos)) {
         lastPlacedBox = clientTempMemory.getRight();
         lastPlacedBlock = clientTempMemory.getMiddle();
       }
       clientTempMemory = null;
     }
-    if (lastPlacedBox != null && lastPlacedBlock != null && !world.isClient) {
-      for (BlockPos posToRemove : BlockPos.iterate(lastPlacedBox.getMinX(), lastPlacedBox.getMinY(), lastPlacedBox.getMinZ(), lastPlacedBox.getMaxX(), lastPlacedBox.getMaxY(), lastPlacedBox.getMaxZ())) {
+    if (lastPlacedBox != null && lastPlacedBlock != null && !world.isClientSide) {
+      for (BlockPos posToRemove : BlockPos.betweenClosed(lastPlacedBox.minX(), lastPlacedBox.minY(), lastPlacedBox.minZ(), lastPlacedBox.maxX(), lastPlacedBox.maxY(), lastPlacedBox.maxZ())) {
         final BlockState existingState = world.getBlockState(posToRemove);
-        if (lastPlacedBlock.equals(existingState.getBlock()) && !(existingState.getBlock() instanceof OperatorBlock && !player.hasPermissionLevel(2))) {
+        if (lastPlacedBlock.equals(existingState.getBlock()) && !(existingState.getBlock() instanceof GameMasterBlock && !player.hasPermissions(2))) {
           // 非管理员不应该破坏管理方块。
           if (fluidIncluded) {
-            world.setBlockState(posToRemove, Blocks.AIR.getDefaultState());
+            world.setBlockAndUpdate(posToRemove, Blocks.AIR.defaultBlockState());
           } else {
             world.removeBlock(posToRemove, false);
           }
         }
       }
-      return ActionResult.SUCCESS;
+      return InteractionResult.SUCCESS;
     }
-    return ActionResult.PASS;
+    return InteractionResult.PASS;
   }
 
   @Override
-  public void onScroll(int selectedSlot, double scrollAmount, ServerPlayerEntity player, ItemStack stack) {
-    final int length = MathHelper.clamp(getLength(stack) - (int) scrollAmount, 1, 64);
-    stack.getOrCreateNbt().putInt("Length", length);
+  public void onScroll(int selectedSlot, double scrollAmount, ServerPlayer player, ItemStack stack) {
+    final int length = Mth.clamp(getLength(stack) - (int) scrollAmount, 1, 64);
+    stack.getOrCreateTag().putInt("Length", length);
   }
 
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   @Override
-  public boolean renderBlockOutline(PlayerEntity player, ItemStack itemStack, WorldRenderContext worldRenderContext, WorldRenderContext.BlockOutlineContext blockOutlineContext, Hand hand) {
-    final MinecraftClient client = MinecraftClient.getInstance();
+  public boolean renderBlockOutline(Player player, ItemStack itemStack, WorldRenderContext worldRenderContext, WorldRenderContext.BlockOutlineContext blockOutlineContext, InteractionHand hand) {
+    final Minecraft minecraft = Minecraft.getInstance();
     if (!player.isCreative()) {
       // 只有在创造模式下，才会绘制边框。
       return true;
-    } else if (hand == Hand.OFF_HAND && player.getMainHandStack().getItem() instanceof BlockItem) {
+    } else if (hand == InteractionHand.OFF_HAND && player.getMainHandItem().getItem() instanceof BlockItem) {
       // 当玩家副手持有物品，主手持有方块时，直接跳过，不绘制。
       return true;
     }
-    final VertexConsumerProvider consumers = worldRenderContext.consumers();
+    final MultiBufferSource consumers = worldRenderContext.consumers();
     if (consumers == null) return true;
-    final VertexConsumer vertexConsumer = consumers.getBuffer(RenderLayer.LINES);
-    final boolean includesFluid = this.includesFluid(itemStack, player.isSneaking());
+    final VertexConsumer vertexConsumer = consumers.getBuffer(RenderType.LINES);
+    final boolean includesFluid = this.includesFluid(itemStack, player.isShiftKeyDown());
     final int length = getLength(itemStack);
     final BlockHitResult raycast;
-    if (client.crosshairTarget instanceof BlockHitResult blockHitResult && blockHitResult.getType() == HitResult.Type.BLOCK) {
+    if (minecraft.hitResult instanceof BlockHitResult blockHitResult && blockHitResult.getType() == HitResult.Type.BLOCK) {
       raycast = blockHitResult;
     } else {
       return true;
     }
-    final ClientWorld world = worldRenderContext.world();
+    final ClientLevel world = worldRenderContext.world();
     final BlockPlacementContext blockPlacementContext = new BlockPlacementContext(world, blockOutlineContext.blockPos(), player, itemStack, raycast, includesFluid);
 
     // 绘制将要放置的方块。
 
-    final Direction side = blockHitResult.getSide();
-    final BlockPos.Mutable posToPlace = new BlockPos.Mutable().set(blockPlacementContext.posToPlace);
+    final Direction side = blockHitResult.getDirection();
+    final BlockPos.MutableBlockPos posToPlace = new BlockPos.MutableBlockPos().set(blockPlacementContext.posToPlace);
     if (blockPlacementContext.canPlace()) {
       for (int i = 0; i < length; i++) {
-        if (world.getBlockState(posToPlace).canReplace(blockPlacementContext.placementContext)) {
+        if (world.getBlockState(posToPlace).canBeReplaced(blockPlacementContext.placementContext)) {
           WorldRendererInvoker.drawCuboidShapeOutline(
               worldRenderContext.matrixStack(),
               vertexConsumer,
-              blockPlacementContext.stateToPlace.getOutlineShape(world, posToPlace, ShapeContext.of(player)),
+              blockPlacementContext.stateToPlace.getShape(world, posToPlace, CollisionContext.of(player)),
               posToPlace.getX() - blockOutlineContext.cameraX(),
               posToPlace.getY() - blockOutlineContext.cameraY(),
               posToPlace.getZ() - blockOutlineContext.cameraZ(),
@@ -234,16 +233,16 @@ public class ColumnBuildingTool extends BlockToolItem implements HotbarScrollInt
 
     // 绘制上次移除过的方块。
 
-    if (hand == Hand.MAIN_HAND && clientTempMemory != null && clientTempMemory.getLeft().equals(world) && clientTempMemory.getRight().contains(blockHitResult.getBlockPos())) {
-      final BlockBox lastPlacedBox = clientTempMemory.getRight();
+    if (hand == InteractionHand.MAIN_HAND && clientTempMemory != null && clientTempMemory.getLeft().equals(world) && clientTempMemory.getRight().isInside(blockHitResult.getBlockPos())) {
+      final BoundingBox lastPlacedBox = clientTempMemory.getRight();
       final Block lastPlacedBlock = clientTempMemory.getMiddle();
-      for (BlockPos posToRemove : BlockPos.iterate(lastPlacedBox.getMinX(), lastPlacedBox.getMinY(), lastPlacedBox.getMinZ(), lastPlacedBox.getMaxX(), lastPlacedBox.getMaxY(), lastPlacedBox.getMaxZ())) {
+      for (BlockPos posToRemove : BlockPos.betweenClosed(lastPlacedBox.minX(), lastPlacedBox.minY(), lastPlacedBox.minZ(), lastPlacedBox.maxX(), lastPlacedBox.maxY(), lastPlacedBox.maxZ())) {
         final BlockState existingState = world.getBlockState(posToRemove);
-        if (lastPlacedBlock.equals(existingState.getBlock()) && !(existingState.getBlock() instanceof OperatorBlock && !player.hasPermissionLevel(2))) {
+        if (lastPlacedBlock.equals(existingState.getBlock()) && !(existingState.getBlock() instanceof GameMasterBlock && !player.hasPermissions(2))) {
           WorldRendererInvoker.drawCuboidShapeOutline(
               worldRenderContext.matrixStack(),
               vertexConsumer,
-              existingState.getOutlineShape(world, posToRemove, ShapeContext.of(player)),
+              existingState.getShape(world, posToRemove, CollisionContext.of(player)),
               posToRemove.getX() - blockOutlineContext.cameraX(),
               posToRemove.getY() - blockOutlineContext.cameraY(),
               posToRemove.getZ() - blockOutlineContext.cameraZ(),

@@ -1,40 +1,45 @@
 package pers.solid.mishang.uc;
 
+import net.minecraft.world.level.block.state.pattern.BlockInWorld;
+
+import pers.solid.mishang.uc.MishangUtils;
+
 import com.google.common.collect.ImmutableSet;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.event.Event;
-import net.fabricmc.fabric.api.event.EventFactory;
-import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
-import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
-import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.fabricmc.fabric.api.event.player.UseEntityCallback;
-import net.fabricmc.fabric.api.gamerule.v1.rule.EnumRule;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.fabricmc.fabric.api.registry.FlammableBlockRegistry;
-import net.fabricmc.fabric.api.registry.FuelRegistry;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.pattern.CachedBlockPosition;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.GameRules;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.FireBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.TagKey;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.GameRules;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.registries.RegisterEvent;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.event.entity.player.AttackEntityEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.furnace.FurnaceFuelBurnTimeEvent;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +48,10 @@ import pers.solid.mishang.uc.block.GlassHandrailBlock;
 import pers.solid.mishang.uc.block.HandrailBlock;
 import pers.solid.mishang.uc.block.Road;
 import pers.solid.mishang.uc.blockentity.BlockEntityWithText;
+import pers.solid.mishang.uc.data.stubs.ServerPlayNetworking;
+import pers.solid.mishang.uc.item.HotbarScrollInteraction;
+import pers.solid.mishang.uc.item.SlabToolItem;
+import pers.solid.mishang.uc.networking.MishangucNetwork;
 import pers.solid.mishang.uc.blockentity.ColoredBlockEntity;
 import pers.solid.mishang.uc.blockentity.MishangucBlockEntities;
 import pers.solid.mishang.uc.blocks.*;
@@ -53,59 +62,116 @@ import pers.solid.mishang.uc.util.ColorfulBlockRegistry;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import net.minecraft.world.InteractionHand;
 
-public class Mishanguc implements ModInitializer {
+@Mod("mishanguc")
+public class Mishanguc {
   public static final Logger MISHANG_LOGGER = LoggerFactory.getLogger("Mishang Urban Construction");
-  /**
-   * 比 {@link AttackBlockCallback#EVENT} 更好！
-   */
-  public static final Event<AttackBlockCallback> BEGIN_ATTACK_BLOCK_EVENT =
-      EventFactory.createArrayBacked(
-          AttackBlockCallback.class,
-          (listeners) ->
-              (player, world, hand, pos, direction) -> {
-                for (AttackBlockCallback event : listeners) {
-                  ActionResult result = event.interact(player, world, hand, pos, direction);
 
-                  if (result != ActionResult.PASS) {
-                    return result;
-                  }
-                }
-                return ActionResult.PASS;
-              });
+  // TODO: These custom events were Fabric EventFactory-based. They need to be replaced with
+  // proper Forge event handling. For now, the attack block logic is handled via
+  // PlayerInteractEvent.LeftClickBlock @SubscribeEvent methods below.
+  // BEGIN_ATTACK_BLOCK_EVENT and PROGRESS_ATTACK_BLOCK_EVENT are removed.
 
-  public static final Event<AttackBlockCallback> PROGRESS_ATTACK_BLOCK_EVENT =
-      EventFactory.createArrayBacked(
-          AttackBlockCallback.class,
-          (listeners) ->
-              (player, world, hand, pos, direction) -> {
-                for (AttackBlockCallback event : listeners) {
-                  ActionResult result = event.interact(player, world, hand, pos, direction);
-                  if (result != ActionResult.PASS) {
-                    return result;
-                  }
-                }
-                return ActionResult.PASS;
-              });
-
-  private static final @NotNull Identifier EXAMPLE_ID = new Identifier("mishanguc", "");
+  private static final @NotNull ResourceLocation EXAMPLE_ID = new ResourceLocation("mishanguc", "");
 
   /**
    * 创建使用本模组命名空间（{@code mishanguc}）的 ID。此方法可以提高不同版本之间的兼容性，同时在部分版本中避免命名空间的冗余校验。
    *
    * @return 使用本模组命名空间（{@code mishanguc}）的 ID。
    */
-  public static @NotNull Identifier id(@NotNull String path) {
+  public static @NotNull ResourceLocation id(@NotNull String path) {
     return EXAMPLE_ID.withPath(path);
+  }
+
+  /**
+   * Set of wooden blocks that should be registered as fuel. Used by the FurnaceFuelBurnTimeEvent handler.
+   */
+  private static Set<Block> WOODEN_FUEL_BLOCKS;
+  private static Set<Block> WOODEN_HANDRAIL_FUEL_BLOCKS;
+
+  public Mishanguc() {
+    final net.minecraftforge.eventbus.api.IEventBus modEventBus =
+        net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext.get().getModEventBus();
+
+    // 初始化游戏规则与特殊渲染类型（非 Forge 注册表，可在此直接初始化）
+    final GameRules.Key<EnumRule<MishangucRules.ToolAccess>> ignore = MishangucRules.CARRYING_TOOL_ACCESS;
+    SpecialDrawableTypes.init();
+
+    // 通过 Forge 的 RegisterEvent 注册方块、物品、方块实体、创造模式物品栏。
+    modEventBus.addListener(this::onRegister);
+
+    // Register this instance for Forge game events
+    MinecraftForge.EVENT_BUS.register(this);
+
+    // Register FMLCommonSetupEvent on the mod event bus
+    modEventBus.addListener(this::onCommonSetup);
+
+    // 玩家踩在道路方块上时，予以加速。
+    ColumnBuildingTool.registerTempMemoryEvents();
+
+    registerCommands();
+  }
+
+  /**
+   * Forge 在加载阶段会为每个注册表分别触发一次 {@link RegisterEvent}。方块和物品属于不同的注册表，
+   * 必须分别在各自的事件中注册，否则会出现 "intrusive holders were not registered" 的错误。
+   */
+  private void onRegister(RegisterEvent event) {
+    // 使用 RegisterHelper 注册，才能正确绑定方块/物品的 intrusive holder。
+    event.register(ForgeRegistries.Keys.BLOCKS, MishangucBlocks::registerBlocks);
+    event.register(ForgeRegistries.Keys.ITEMS, helper -> {
+      MishangucBlocks.registerItems(helper);
+      MishangucItems.registerItems(helper);
+    });
+    event.register(ForgeRegistries.Keys.BLOCK_ENTITY_TYPES, MishangucBlockEntities::registerAll);
+    // 创造模式物品栏（内部会自行判断注册表是否为 CREATIVE_MODE_TABS）
+    MishangucItemGroups.registerTabs(event);
+  }
+
+  private void onCommonSetup(FMLCommonSetupEvent event) {
+    // 注册网络频道与服务端接收器。
+    MishangucNetwork.register();
+    registerNetworkingReceiver();
+    event.enqueueWork(() -> {
+      // 这些方法会引用（从而加载）方块类，必须在方块注册完成后执行，否则会在注册表冻结状态下创建方块。
+      registerColoredBlocks();
+      registerColorfulBlocks();
+      registerFlammableBlocks();
+    });
+  }
+
+  /**
+   * 注册服务端的网络接收器（对应 Fabric 的 {@code ServerPlayNetworking.registerGlobalReceiver}）。
+   */
+  private static void registerNetworkingReceiver() {
+    ServerPlayNetworking.registerGlobalReceiver(
+        new ResourceLocation("mishanguc", "edit_sign_finish"), BlockEntityWithText.PACKET_HANDLER);
+    ServerPlayNetworking.registerGlobalReceiver(
+        new ResourceLocation("mishanguc", "item_scroll"), (server, player, handler, buf, responseSender) -> {
+          final int selectedSlot = buf.readInt();
+          final double scrollAmount = buf.readDouble();
+          server.execute(() -> {
+            final ItemStack stack = player.getInventory().getItem(selectedSlot);
+            if (stack.getItem() instanceof HotbarScrollInteraction interaction) {
+              interaction.onScroll(selectedSlot, scrollAmount, player, stack);
+            }
+          });
+        });
+    ServerPlayNetworking.registerGlobalReceiver(
+        new ResourceLocation("mishanguc", "slab_tool"), SlabToolItem.Handler.INSTANCE);
   }
 
   private static void registerCommands() {
   }
 
-  private static void registerFlammableAndFuels() {
-    // 注册可燃方块
-    final FlammableBlockRegistry flammableBlockRegistry = FlammableBlockRegistry.getDefaultInstance();
-    final FuelRegistry fuelRegistry = FuelRegistry.INSTANCE;
+  /**
+   * Register flammable blocks using FireBlock.setFlammable (Forge equivalent of FlammableBlockRegistry).
+   * Fuel registration is handled by the FurnaceFuelBurnTimeEvent handler below.
+   */
+  private static void registerFlammableBlocks() {
+    final FireBlock fireBlock = (FireBlock) Blocks.FIRE;
 
     final Block[] woodenBlocks = {
         HungSignBlocks.OAK_HUNG_SIGN,
@@ -224,10 +290,16 @@ public class Mishanguc implements ModInitializer {
         StandingSignBlocks.BAMBOO_PLANK_STANDING_SIGN,
         StandingSignBlocks.BAMBOO_MOSAIC_STANDING_SIGN
     };
+
+    // Build the set for fuel registration
+    ImmutableSet.Builder<Block> woodenFuelBuilder = ImmutableSet.builder();
+
     for (Block block : woodenBlocks) {
-      flammableBlockRegistry.add(block, 5, 20);
-      fuelRegistry.add(block, 100);
+      fireBlock.setFlammable(block, 5, 20);
+      woodenFuelBuilder.add(block);
     }
+    WOODEN_FUEL_BLOCKS = woodenFuelBuilder.build();
+
     final Collection<HandrailBlock> woodenHandrails = ImmutableSet.of(
         HandrailBlocks.SIMPLE_OAK_HANDRAIL,
         HandrailBlocks.SIMPLE_SPRUCE_HANDRAIL,
@@ -276,171 +348,198 @@ public class Mishanguc implements ModInitializer {
         HandrailBlocks.COLORED_DECORATED_STRIPPED_MANGROVE_HANDRAIL,
         HandrailBlocks.COLORED_DECORATED_STRIPPED_BAMBOO_HANDRAIL
     );
+
+    ImmutableSet.Builder<Block> handrailFuelBuilder = ImmutableSet.builder();
     for (HandrailBlock handrail : woodenHandrails) {
-      flammableBlockRegistry.add(handrail, 5, 20);
-      flammableBlockRegistry.add(handrail.central(), 5, 20);
-      flammableBlockRegistry.add(handrail.corner(), 5, 20);
-      flammableBlockRegistry.add(handrail.outer(), 5, 20);
-      flammableBlockRegistry.add(handrail.stair(), 5, 20);
-      fuelRegistry.add(handrail, 100);
-      fuelRegistry.add(handrail.central(), 100);
-      fuelRegistry.add(handrail.corner(), 100);
-      fuelRegistry.add(handrail.outer(), 100);
-      fuelRegistry.add(handrail.stair(), 100);
+      fireBlock.setFlammable(handrail, 5, 20);
+      fireBlock.setFlammable(handrail.central(), 5, 20);
+      fireBlock.setFlammable(handrail.corner(), 5, 20);
+      fireBlock.setFlammable(handrail.outer(), 5, 20);
+      fireBlock.setFlammable(handrail.stair(), 5, 20);
+      handrailFuelBuilder.add(handrail);
+      handrailFuelBuilder.add(handrail.central());
+      handrailFuelBuilder.add(handrail.corner());
+      handrailFuelBuilder.add(handrail.outer());
+      handrailFuelBuilder.add(handrail.stair());
+    }
+    WOODEN_HANDRAIL_FUEL_BLOCKS = handrailFuelBuilder.build();
+
+    fireBlock.setFlammable(ColoredBlocks.COLORED_PLANKS, 5, 20);
+    fireBlock.setFlammable(ColoredBlocks.COLORED_PLANK_STAIRS, 5, 20);
+    fireBlock.setFlammable(ColoredBlocks.COLORED_PLANK_SLAB, 5, 20);
+    fireBlock.setFlammable(ColoredBlocks.COLORED_WOOL, 30, 60);
+  }
+
+  /**
+   * Forge equivalent of FuelRegistry. Handles fuel burn time for wooden blocks.
+   */
+  @SubscribeEvent
+  public void onFuelBurnTime(FurnaceFuelBurnTimeEvent event) {
+    final Item item = event.getItemStack().getItem();
+    final Block block = Block.byItem(item);
+
+    if (WOODEN_FUEL_BLOCKS != null && WOODEN_FUEL_BLOCKS.contains(block)) {
+      event.setBurnTime(100);
+      return;
+    }
+    if (WOODEN_HANDRAIL_FUEL_BLOCKS != null && WOODEN_HANDRAIL_FUEL_BLOCKS.contains(block)) {
+      event.setBurnTime(100);
+      return;
+    }
+    if (block == ColoredBlocks.COLORED_PLANKS) {
+      event.setBurnTime(300);
+    } else if (block == ColoredBlocks.COLORED_PLANK_STAIRS) {
+      event.setBurnTime(300);
+    } else if (block == ColoredBlocks.COLORED_PLANK_SLAB) {
+      event.setBurnTime(150);
+    } else if (block == ColoredBlocks.COLORED_WOOL) {
+      event.setBurnTime(100);
+    }
+  }
+
+  // TODO: Networking registration needs Forge SimpleChannel conversion.
+  // ServerPlayNetworking.registerGlobalReceiver calls should be replaced with
+  // Forge networking (SimpleChannel/NetworkChannel).
+  // For now, the player login sync is handled via @SubscribeEvent below.
+
+  @SubscribeEvent
+  public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+    if (event.getEntity() instanceof ServerPlayer serverPlayer) {
+      final GameRules gameRules = serverPlayer.getServer().getGameRules();
+      MishangucRules.sync(gameRules.getRule(MishangucRules.FORCE_PLACING_TOOL_ACCESS), (short) 0, serverPlayer);
+      MishangucRules.sync(gameRules.getRule(MishangucRules.CARRYING_TOOL_ACCESS), (short) 1, serverPlayer);
+    }
+  }
+
+  // ---- Forge event handlers replacing Fabric callbacks ----
+
+  /**
+   * Replaces AttackBlockCallback.EVENT.register (server-side attack block).
+   * Also handles BEGIN_ATTACK_BLOCK_EVENT logic for minecraft-side.
+   */
+  @SubscribeEvent
+  public void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
+    final var player = event.getEntity();
+    final var world = event.getLevel();
+    final var hand = event.getHand();
+    final var pos = event.getPos();
+    final var direction = event.getFace();
+
+    if (player.isSpectator()) return;
+
+    final ItemStack stack = player.getItemInHand(hand);
+    final Item item = stack.getItem();
+
+    if (item instanceof final BlockToolItem blockToolItem) {
+      InteractionResult result = blockToolItem.beginAttackBlock(stack, player, world, hand, pos, direction, blockToolItem.includesFluid(stack, player.isShiftKeyDown()));
+      if (result != InteractionResult.PASS) {
+        event.setCanceled(true);
+      }
+    }
+  }
+
+  /**
+   * Replaces UseBlockCallback.EVENT.register (use block / right-click block).
+   */
+  @SubscribeEvent
+  public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+    final var player = event.getEntity();
+    final var world = event.getLevel();
+    final var hand = event.getHand();
+    final var hitResult = event.getHitVec();
+
+    if (player.isSpectator()) return;
+
+    final ItemStack stackInHand = player.getItemInHand(hand);
+    final Item item = stackInHand.getItem();
+
+    // BlockToolItem use on block
+    if (!player.getAbilities().mayBuild && !stackInHand.hasAdventureModePlaceTagForBlock(BuiltInRegistries.BLOCK, new BlockInWorld(world, hitResult.getBlockPos(), false))) {
+      // pass
+    } else if (item instanceof final BlockToolItem blockToolItem) {
+      InteractionResult result = blockToolItem.useOnBlock(stackInHand, player, world, hitResult, hand, blockToolItem.includesFluid(stackInHand, player.isShiftKeyDown()));
+      if (result != InteractionResult.PASS) {
+        event.setCanceled(true);
+        return;
+      }
     }
 
-    flammableBlockRegistry.add(ColoredBlocks.COLORED_PLANKS, 5, 20);
-    fuelRegistry.add(ColoredBlocks.COLORED_PLANKS, 300);
-    flammableBlockRegistry.add(ColoredBlocks.COLORED_PLANK_STAIRS, 5, 20);
-    fuelRegistry.add(ColoredBlocks.COLORED_PLANK_STAIRS, 300);
-    flammableBlockRegistry.add(ColoredBlocks.COLORED_PLANK_SLAB, 5, 20);
-    fuelRegistry.add(ColoredBlocks.COLORED_PLANK_SLAB, 150);
-    flammableBlockRegistry.add(ColoredBlocks.COLORED_WOOL, 30, 60);
-    fuelRegistry.add(ColoredBlocks.COLORED_WOOL, 100);
-  }
-
-  private static void registerNetworkingReceiver() {
-    // 注册服务器接收
-    ServerPlayNetworking.registerGlobalReceiver(
-        new Identifier("mishanguc", "edit_sign_finish"), BlockEntityWithText.PACKET_HANDLER);
-    ServerPlayNetworking.registerGlobalReceiver(new Identifier("mishanguc", "item_scroll"), (server, player, handler, buf, responseSender) -> {
-      final int selectedSlot = buf.readInt();
-      final double scrollAmount = buf.readDouble();
-      server.execute(() -> {
-        final ItemStack stack = player.getInventory().getStack(selectedSlot);
-        if (stack.getItem() instanceof HotbarScrollInteraction interaction) {
-          interaction.onScroll(selectedSlot, scrollAmount, player, stack);
-        }
-      });
-    });
-    ServerPlayNetworking.registerGlobalReceiver(new Identifier("mishanguc", "slab_tool"), SlabToolItem.Handler.INSTANCE);
-    ServerPlayConnectionEvents.JOIN.register((serverPlayNetworkHandler, packetSender, minecraftServer) -> {
-      final ServerPlayerEntity serverPlayerEntity = serverPlayNetworkHandler.player;
-      final GameRules gameRules = serverPlayerEntity.getServer().getGameRules();
-      MishangucRules.sync(gameRules.get(MishangucRules.FORCE_PLACING_TOOL_ACCESS), (short) 0, serverPlayerEntity);
-      MishangucRules.sync(gameRules.get(MishangucRules.CARRYING_TOOL_ACCESS), (short) 1, serverPlayerEntity);
-    });
-  }
-
-  private static void registerEvents() {
-    // 注册事件
-    BEGIN_ATTACK_BLOCK_EVENT.register(
-        // 仅限客户端执行
-        (player, world, hand, pos, direction) -> {
-          if (!world.isClient || player.isSpectator()) {
-            return ActionResult.PASS;
-          }
-          final ItemStack stack = player.getMainHandStack();
-          final Item item = stack.getItem();
-          if (item instanceof final BlockToolItem blockToolItem) {
-            return blockToolItem.beginAttackBlock(stack, player, world, hand, pos, direction, blockToolItem.includesFluid(stack, player.isSneaking()));
-          } else {
-            return ActionResult.PASS;
-          }
-        });
-
-    PROGRESS_ATTACK_BLOCK_EVENT.register(
-        // 仅限客户端执行
-        (player, world, hand, pos, direction) -> {
-          if (!world.isClient || player.isSpectator()) {
-            return ActionResult.PASS;
-          }
-          final ItemStack stack = player.getStackInHand(hand);
-          final Item item = stack.getItem();
-          if (item instanceof final BlockToolItem blockToolItem) {
-            final BlockHitResult hitResult = (BlockHitResult) player.raycast(5, 0, blockToolItem.includesFluid(stack, player.isSneaking()));
-            return blockToolItem.progressAttackBlock(player, world, hand, hitResult.getBlockPos(), hitResult.getSide(), blockToolItem.includesFluid(stack, player.isSneaking()));
-          } else {
-            return ActionResult.PASS;
-          }
-        });
-    AttackBlockCallback.EVENT.register(
-        // 仅限服务器执行
-        (player, world, hand, pos, direction) -> {
-          if (world.isClient || player.isSpectator()) {
-            return ActionResult.PASS;
-          }
-          final ItemStack stack = player.getStackInHand(hand);
-          final Item item = stack.getItem();
-          if (item instanceof final BlockToolItem blockToolItem) {
-            return blockToolItem.beginAttackBlock(stack, player, world, hand, pos, direction, ((BlockToolItem) item).includesFluid(stack, player.isSneaking()));
-          } else {
-            return ActionResult.PASS;
-          }
-        });
-    UseBlockCallback.EVENT.register(
-        (player, world, hand, hitResult) -> {
-          if (player.isSpectator()) return ActionResult.PASS;
-          final ItemStack stackInHand = player.getStackInHand(hand);
-          final Item item = stackInHand.getItem();
-          if (!player.getAbilities().allowModifyWorld && !stackInHand.canPlaceOn(Registries.BLOCK, new CachedBlockPosition(world, hitResult.getBlockPos(), false))) {
-            return ActionResult.PASS;
-          }
-          if (item instanceof final BlockToolItem blockToolItem) {
-            return blockToolItem.useOnBlock(stackInHand, player, world, hitResult, hand, blockToolItem.includesFluid(stackInHand, player.isSneaking()));
-          } else {
-            return ActionResult.PASS;
-          }
-        });
-    AttackEntityCallback.EVENT.register(
-        (player, world, hand, entity, hitResult) -> {
-          if (player.isSpectator()) return ActionResult.PASS;
-          final ItemStack stackInHand = player.getStackInHand(hand);
-          final Item item = stackInHand.getItem();
-          if (item instanceof final InteractsWithEntity interactsWithEntity) {
-            return interactsWithEntity.attackEntityCallback(player, world, hand, entity, hitResult);
-          } else {
-            return ActionResult.PASS;
-          }
-        });
-    UseEntityCallback.EVENT.register(
-        (player, world, hand, entity, hitResult) -> {
-          if (player.isSpectator()) return ActionResult.PASS;
-          final ItemStack stackInHand = player.getStackInHand(hand);
-          final Item item = stackInHand.getItem();
-          if (item instanceof final InteractsWithEntity interactsWithEntity) {
-            return interactsWithEntity.useEntityCallback(player, world, hand, entity, hitResult);
-          } else {
-            return ActionResult.PASS;
-          }
-        });
-
-    UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
-      if (player.isSpectator()) return ActionResult.PASS;
-      final ItemStack stack = player.getStackInHand(hand);
-      final BlockPos blockPos = hitResult.getBlockPos();
-      final BlockState blockState = world.getBlockState(blockPos);
-      if (!blockState.isOf(Blocks.WATER_CAULDRON)) {
-        return ActionResult.PASS;
+    // Water cauldron road cleaning
+    final BlockPos blockPos = hitResult.getBlockPos();
+    final BlockState blockState = world.getBlockState(blockPos);
+    if (blockState.is(Blocks.WATER_CAULDRON)) {
+      InteractionResult result = Road.CLEAN_ROAD_BLOCK.interact(blockState, world, blockPos, player, hand, stackInHand);
+      if (result != InteractionResult.PASS) {
+        event.setCanceled(true);
+        return;
       }
-      return Road.CLEAN_ROAD_BLOCK.interact(blockState, world, blockPos, player, hand, stack);
-    });
+    }
 
-    UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
-      if (player.isSpectator()) {
-        return ActionResult.PASS;
-      }
-      if (hitResult.getType() == HitResult.Type.BLOCK) {
-        final BlockPos blockPos = hitResult.getBlockPos();
-        final BlockEntity blockEntity = world.getBlockEntity(blockPos);
-        if (blockEntity instanceof ColoredBlockEntity coloredBlockEntity) {
-          for (Map.Entry<DyeColor, TagKey<Item>> entry : MishangUtils.DYE_ITEM_TAGS.get().entrySet()) {
-            final ItemStack stack = player.getStackInHand(hand);
-            if (stack.isIn(entry.getValue())) {
-              coloredBlockEntity.setColor(entry.getKey().getFireworkColor());
-              blockEntity.markDirty();
-              world.updateListeners(blockPos, blockEntity.getCachedState(), blockEntity.getCachedState(), Block.NOTIFY_LISTENERS);
-              if (!player.getAbilities().creativeMode) {
-                stack.decrement(1);
-              }
-              world.playSound(null, blockPos, SoundEvents.ITEM_DYE_USE, SoundCategory.BLOCKS, 1.0F, 1.0F);
-              return ActionResult.SUCCESS;
+    // Colored block entity dyeing
+    if (hitResult.getType() == HitResult.Type.BLOCK) {
+      final BlockEntity blockEntity = world.getBlockEntity(blockPos);
+      if (blockEntity instanceof ColoredBlockEntity coloredBlockEntity) {
+        for (Map.Entry<DyeColor, TagKey<Item>> entry : MishangUtils.DYE_ITEM_TAGS.get().entrySet()) {
+          final ItemStack stack = player.getItemInHand(hand);
+          if (stack.is(entry.getValue())) {
+            coloredBlockEntity.setColor(entry.getKey().getFireworkColor());
+            blockEntity.setChanged();
+            world.sendBlockUpdated(blockPos, blockEntity.getBlockState(), blockEntity.getBlockState(), Block.UPDATE_CLIENTS);
+            if (!player.getAbilities().instabuild) {
+              stack.shrink(1);
             }
+            world.playSound(null, blockPos, SoundEvents.DYE_USE, SoundSource.BLOCKS, 1.0F, 1.0F);
+            event.setCanceled(true);
+            return;
           }
         }
       }
-      return ActionResult.PASS;
-    });
+    }
+  }
+
+  /**
+   * Replaces AttackEntityCallback.EVENT.register.
+   */
+  @SubscribeEvent
+  public void onAttackEntity(AttackEntityEvent event) {
+    final var player = event.getEntity();
+    final var world = player.level();
+    if (player.isSpectator()) return;
+
+    // AttackEntityEvent does not provide hand or hitResult directly;
+    // we use main hand as Fabric's AttackEntityCallback did.
+    final var hand = net.minecraft.world.InteractionHand.MAIN_HAND;
+    final var entity = event.getTarget();
+    final ItemStack stackInHand = player.getItemInHand(hand);
+    final Item item = stackInHand.getItem();
+    if (item instanceof final InteractsWithEntity interactsWithEntity) {
+      InteractionResult result = interactsWithEntity.attackEntityCallback(player, world, hand, entity, null);
+      if (result != InteractionResult.PASS) {
+        event.setCanceled(true);
+      }
+    }
+  }
+
+  /**
+   * Replaces UseEntityCallback.EVENT.register.
+   */
+  @SubscribeEvent
+  public void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
+    final var player = event.getEntity();
+    final var world = event.getLevel();
+    final var hand = event.getHand();
+    final var entity = event.getTarget();
+
+    if (player.isSpectator()) return;
+
+    final ItemStack stackInHand = player.getItemInHand(hand);
+    final Item item = stackInHand.getItem();
+    if (item instanceof final InteractsWithEntity interactsWithEntity) {
+      InteractionResult result = interactsWithEntity.useEntityCallback(player, world, hand, entity, null);
+      if (result != InteractionResult.PASS) {
+        event.setCanceled(true);
+      }
+    }
   }
 
   private static void registerColoredBlocks() {
@@ -564,16 +663,16 @@ public class Mishanguc implements ModInitializer {
       blockMap.put(block.stair(), HandrailBlocks.COLORED_DECORATED_IRON_HANDRAIL.stair());
     }
 
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("concrete_hung_signs")), HungSignBlocks.COLORED_CONCRETE_HUNG_SIGN);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("glowing_concrete_hung_signs")), HungSignBlocks.COLORED_GLOWING_CONCRETE_HUNG_SIGN);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("concrete_hung_sign_bars")), HungSignBlocks.COLORED_CONCRETE_HUNG_SIGN_BAR);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("terracotta_hung_signs")), HungSignBlocks.COLORED_TERRACOTTA_HUNG_SIGN);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("glowing_terracotta_hung_signs")), HungSignBlocks.COLORED_GLOWING_TERRACOTTA_HUNG_SIGN);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("terracotta_hung_sign_bars")), HungSignBlocks.COLORED_TERRACOTTA_HUNG_SIGN_BAR);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("concrete_standing_signs")), StandingSignBlocks.COLORED_CONCRETE_STANDING_SIGN);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("terracotta_standing_signs")), StandingSignBlocks.COLORED_TERRACOTTA_STANDING_SIGN);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("glowing_concrete_standing_signs")), StandingSignBlocks.COLORED_GLOWING_CONCRETE_STANDING_SIGN);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("glowing_terracotta_standing_signs")), StandingSignBlocks.COLORED_GLOWING_TERRACOTTA_STANDING_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("concrete_hung_signs")), HungSignBlocks.COLORED_CONCRETE_HUNG_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("glowing_concrete_hung_signs")), HungSignBlocks.COLORED_GLOWING_CONCRETE_HUNG_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("concrete_hung_sign_bars")), HungSignBlocks.COLORED_CONCRETE_HUNG_SIGN_BAR);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("terracotta_hung_signs")), HungSignBlocks.COLORED_TERRACOTTA_HUNG_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("glowing_terracotta_hung_signs")), HungSignBlocks.COLORED_GLOWING_TERRACOTTA_HUNG_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("terracotta_hung_sign_bars")), HungSignBlocks.COLORED_TERRACOTTA_HUNG_SIGN_BAR);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("concrete_standing_signs")), StandingSignBlocks.COLORED_CONCRETE_STANDING_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("terracotta_standing_signs")), StandingSignBlocks.COLORED_TERRACOTTA_STANDING_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("glowing_concrete_standing_signs")), StandingSignBlocks.COLORED_GLOWING_CONCRETE_STANDING_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("glowing_terracotta_standing_signs")), StandingSignBlocks.COLORED_GLOWING_TERRACOTTA_STANDING_SIGN);
 
     blockMap.put(HungSignBlocks.STONE_HUNG_SIGN, HungSignBlocks.COLORED_STONE_HUNG_SIGN);
     blockMap.put(HungSignBlocks.GLOWING_STONE_HUNG_SIGN, HungSignBlocks.COLORED_GLOWING_STONE_HUNG_SIGN);
@@ -589,10 +688,10 @@ public class Mishanguc implements ModInitializer {
     blockMap.put(HungSignBlocks.IRON_HUNG_SIGN_BAR, HungSignBlocks.COLORED_IRON_HUNG_SIGN_BAR);
 
     List.of(WallSignBlocks.OAK_WALL_SIGN, WallSignBlocks.SPRUCE_WALL_SIGN, WallSignBlocks.BIRCH_WALL_SIGN, WallSignBlocks.JUNGLE_WALL_SIGN, WallSignBlocks.ACACIA_WALL_SIGN, WallSignBlocks.CHERRY_WALL_SIGN, WallSignBlocks.DARK_OAK_WALL_SIGN, WallSignBlocks.MANGROVE_WALL_SIGN).forEach(b -> blockMap.put(b, WallSignBlocks.COLORED_WOODEN_WALL_SIGN));
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("concrete_wall_signs")), WallSignBlocks.COLORED_CONCRETE_WALL_SIGN);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("terracotta_wall_signs")), WallSignBlocks.COLORED_TERRACOTTA_WALL_SIGN);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("glowing_concrete_wall_signs")), WallSignBlocks.COLORED_GLOWING_CONCRETE_WALL_SIGN);
-    tagMap.put(TagKey.of(RegistryKeys.BLOCK, id("glowing_terracotta_wall_signs")), WallSignBlocks.COLORED_GLOWING_TERRACOTTA_WALL_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("concrete_wall_signs")), WallSignBlocks.COLORED_CONCRETE_WALL_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("terracotta_wall_signs")), WallSignBlocks.COLORED_TERRACOTTA_WALL_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("glowing_concrete_wall_signs")), WallSignBlocks.COLORED_GLOWING_CONCRETE_WALL_SIGN);
+    tagMap.put(TagKey.create(Registries.BLOCK, id("glowing_terracotta_wall_signs")), WallSignBlocks.COLORED_GLOWING_TERRACOTTA_WALL_SIGN);
 
     blockMap.put(WallSignBlocks.STONE_WALL_SIGN, WallSignBlocks.COLORED_STONE_WALL_SIGN);
     blockMap.put(WallSignBlocks.GLOWING_STONE_WALL_SIGN, WallSignBlocks.COLORED_GLOWING_STONE_WALL_SIGN);
@@ -610,28 +709,6 @@ public class Mishanguc implements ModInitializer {
     blockMap.put(StandingSignBlocks.GLOWING_STONE_BRICK_STANDING_SIGN, StandingSignBlocks.COLORED_GLOWING_STONE_BRICK_STANDING_SIGN);
     blockMap.put(StandingSignBlocks.IRON_STANDING_SIGN, StandingSignBlocks.COLORED_IRON_STANDING_SIGN);
     blockMap.put(StandingSignBlocks.GLOWING_IRON_STANDING_SIGN, StandingSignBlocks.COLORED_GLOWING_IRON_STANDING_SIGN);
-  }
-
-  @Override
-  public void onInitialize() {
-    // 初始化静态字段
-    MishangucBlocks.init();
-    MishangucItems.init();
-    MishangucBlockEntities.init();
-    final GameRules.Key<EnumRule<MishangucRules.ToolAccess>> ignore = MishangucRules.CARRYING_TOOL_ACCESS;
-    SpecialDrawableTypes.init();
-    MishangucItemGroups.init();
-
-    registerEvents();
-    registerNetworkingReceiver();
-    registerFlammableAndFuels();
-
-    // 玩家踩在道路方块上时，予以加速。
-    ColumnBuildingTool.registerTempMemoryEvents();
-
-    registerCommands();
-    registerColoredBlocks();
-    registerColorfulBlocks();
   }
 
   private static void registerColorfulBlocks() {

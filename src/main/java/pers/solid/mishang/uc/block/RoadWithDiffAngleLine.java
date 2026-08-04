@@ -1,22 +1,27 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.client.*;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.data.server.recipe.ShapedRecipeJsonBuilder;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.text.Text;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Direction;
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.item.TooltipFlag;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.VariantSettings;
+import pers.solid.mishang.uc.data.stubs.Model;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.ShapedRecipeBuilder;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.ChatFormatting;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.Direction;
 import org.jetbrains.annotations.NotNull;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.data.FasterTextureMap;
@@ -27,6 +32,7 @@ import pers.solid.mishang.uc.util.LineType;
 import pers.solid.mishang.uc.util.TextBridge;
 
 import java.util.List;
+import com.mojang.math.Axis;
 
 /**
  * 类似于 {@link RoadWithAngleLine}，但是直角两边可能不同。
@@ -35,26 +41,26 @@ public interface RoadWithDiffAngleLine extends RoadWithAngleLine {
   /**
    * 直角上该坐标轴上的边视为第二个边，另一个方向的边则视为第一个边。
    */
-  EnumProperty<Direction.Axis> AXIS = Properties.HORIZONTAL_AXIS;
+  EnumProperty<Direction.Axis> AXIS = BlockStateProperties.HORIZONTAL_AXIS;
 
   @Override
-  default void appendRoadProperties(StateManager.Builder<Block, BlockState> builder) {
+  default void appendRoadProperties(StateDefinition.Builder<Block, BlockState> builder) {
     RoadWithAngleLine.super.appendRoadProperties(builder);
     builder.add(AXIS);
   }
 
   @Override
-  default BlockState rotateRoad(BlockState state, BlockRotation rotation) {
+  default BlockState rotateRoad(BlockState state, Rotation rotation) {
     return RoadWithAngleLine.super
         .rotateRoad(state, rotation)
-        .with(AXIS, MishangUtils.rotateAxis(rotation, state.get(AXIS)));
+        .setValue(AXIS, MishangUtils.rotateAxis(rotation, state.getValue(AXIS)));
   }
 
   @Override
-  default BlockState withPlacementState(BlockState state, ItemPlacementContext ctx) {
+  default BlockState withPlacementState(BlockState state, BlockPlaceContext ctx) {
     return RoadWithAngleLine.super
         .withPlacementState(state, ctx)
-        .with(AXIS, ctx.getHorizontalPlayerFacing().getAxis());
+        .setValue(AXIS, ctx.getHorizontalDirection().getAxis());
   }
 
   class Impl extends RoadWithAngleLine.Impl implements RoadWithDiffAngleLine {
@@ -63,7 +69,7 @@ public interface RoadWithDiffAngleLine extends RoadWithAngleLine {
     private final String lineSide2;
 
     public Impl(
-        Settings settings,
+        Properties settings,
         LineColor lineColor,
         LineColor lineColor2,
         LineType lineType,
@@ -77,32 +83,32 @@ public interface RoadWithDiffAngleLine extends RoadWithAngleLine {
 
     @Override
     public LineColor getLineColor(BlockState state, Direction direction) {
-      return state.get(AXIS) == direction.getAxis() ? lineColor2 : lineColor;
+      return state.getValue(AXIS) == direction.getAxis() ? lineColor2 : lineColor;
     }
 
     @Override
-    public void appendDescriptionTooltip(List<Text> tooltip, TooltipContext options) {
-      tooltip.add(TextBridge.translatable("lineType.diffAngleLine.composed.1", lineColor.getName(), lineType.getName()).formatted(Formatting.BLUE));
-      tooltip.add(TextBridge.translatable("lineType.diffAngleLine.composed.2", lineColor2.getName(), lineType2.getName()).formatted(Formatting.BLUE));
+    public void appendDescriptionTooltip(List<Component> tooltip, TooltipFlag options) {
+      tooltip.add(TextBridge.translatable("lineType.diffAngleLine.composed.1", lineColor.getName(), lineType.getName()).withStyle(ChatFormatting.BLUE));
+      tooltip.add(TextBridge.translatable("lineType.diffAngleLine.composed.2", lineColor2.getName(), lineType2.getName()).withStyle(ChatFormatting.BLUE));
     }
 
     @Override
     public LineType getLineType(BlockState state, Direction direction) {
-      return state.get(AXIS) == direction.getAxis() ? lineType2 : lineType;
+      return state.getValue(AXIS) == direction.getAxis() ? lineType2 : lineType;
     }
 
     @Override
     protected <B extends Block & Road> void registerBaseOrSlabModels(B road, BlockStateModelGenerator blockStateModelGenerator) {
       final FasterTextureMap textures = new FasterTextureMap().base("asphalt").lineSide(lineSide).lineSide2(lineSide2).lineTop(lineTop);
-      final Identifier id = road.uploadModel("_with_angle_line", textures, blockStateModelGenerator, MishangucTextureKeys.BASE, MishangucTextureKeys.LINE_SIDE, MishangucTextureKeys.LINE_SIDE2, MishangucTextureKeys.LINE_TOP);
-      final Identifier mirroredId = road.uploadModel("_with_angle_line_mirrored", "_mirrored", textures, blockStateModelGenerator, MishangucTextureKeys.BASE, MishangucTextureKeys.LINE_SIDE, MishangucTextureKeys.LINE_SIDE2, MishangucTextureKeys.LINE_TOP);
+      final ResourceLocation id = road.uploadModel("_with_angle_line", textures, blockStateModelGenerator, MishangucTextureKeys.BASE, MishangucTextureKeys.LINE_SIDE, MishangucTextureKeys.LINE_SIDE2, MishangucTextureKeys.LINE_TOP);
+      final ResourceLocation mirroredId = road.uploadModel("_with_angle_line_mirrored", "_mirrored", textures, blockStateModelGenerator, MishangucTextureKeys.BASE, MishangucTextureKeys.LINE_SIDE, MishangucTextureKeys.LINE_SIDE2, MishangucTextureKeys.LINE_TOP);
       final BlockStateVariantMap.DoubleProperty<HorizontalCornerDirection, Direction.Axis> map = BlockStateVariantMap.create(FACING, AXIS);
       // 一侧的短线所朝向的方向。
-      for (Direction direction : Direction.Type.HORIZONTAL) {
-        final @NotNull Direction offsetDirection1 = direction.rotateYClockwise();
+      for (Direction direction : Direction.Plane.HORIZONTAL) {
+        final @NotNull Direction offsetDirection1 = direction.getClockWise();
         // direction 的右偏方向
         final @NotNull HorizontalCornerDirection facing1 = HorizontalCornerDirection.fromDirections(direction, offsetDirection1);
-        final @NotNull Direction offsetDirection2 = direction.rotateYCounterclockwise();
+        final @NotNull Direction offsetDirection2 = direction.getCounterClockWise();
         // direction 的左偏方向
         final @NotNull HorizontalCornerDirection facing2 = HorizontalCornerDirection.fromDirections(direction, offsetDirection2);
         map
@@ -152,23 +158,23 @@ public interface RoadWithDiffAngleLine extends RoadWithAngleLine {
           return NORMAL_PATTERN;
         }
       }
-      throw new IllegalArgumentException(String.format("Cannot determine patterns for [%s, %s]", lineType.asString(), lineType2.asString()));
+      throw new IllegalArgumentException(String.format("Cannot determine patterns for [%s, %s]", lineType.getSerializedName(), lineType2.getSerializedName()));
     }
 
     @Override
-    public CraftingRecipeJsonBuilder getPaintingRecipe(Block base, Block self) {
+    public RecipeBuilder getPaintingRecipe(Block base, Block self) {
       final String[] composePattern = composePattern(lineType, lineType2);
-      final ShapedRecipeJsonBuilder recipe = ShapedRecipeJsonBuilder.create(RecipeCategory.BUILDING_BLOCKS, self, 3)
+      final ShapedRecipeBuilder recipe = ShapedRecipeBuilder.shaped(RecipeCategory.BUILDING_BLOCKS, self, 3)
           .pattern(composePattern[0])
           .pattern(composePattern[1])
           .pattern(composePattern[2])
-          .input('a', lineColor.getIngredient())
-          .input('b', lineColor2.getIngredient())
-          .input('X', base)
-          .criterion("has_" + lineColor.asString() + "_paint", RecipeProvider.conditionsFromTag(lineColor.getIngredient()))
-          .criterion(RecipeProvider.hasItem(base), RecipeProvider.conditionsFromItem(base));
+          .define('a', lineColor.getIngredient())
+          .define('b', lineColor2.getIngredient())
+          .define('X', base)
+          .unlockedBy("has_" + lineColor.getSerializedName() + "_paint", FabricRecipeProvider.has(lineColor.getIngredient()))
+          .unlockedBy(FabricRecipeProvider.getHasName(base), FabricRecipeProvider.has(base));
       if (lineColor != lineColor2) {
-        recipe.criterion("has_" + lineColor2.asString() + "_paint", RecipeProvider.conditionsFromTag(lineColor2.getIngredient()));
+        recipe.unlockedBy("has_" + lineColor2.getSerializedName() + "_paint", FabricRecipeProvider.has(lineColor2.getIngredient()));
       }
       return recipe;
     }

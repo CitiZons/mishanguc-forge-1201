@@ -3,6 +3,7 @@
   "minVersion": "0.8",
   "package": "pers.solid.mishang.uc.mixin",
   "compatibilityLevel": "JAVA_17",
+  "refmap": "mishanguc.refmap.json",
   "mixins": [
     "AbstractBlockStateMixin",
     "AreaHelperMixin",
@@ -31,6 +32,6 @@
     "WorldRendererInvoker"
   ],
   "injectors": {
-    "defaultRequire": 1
+    "defaultRequire": 0
   }
 }

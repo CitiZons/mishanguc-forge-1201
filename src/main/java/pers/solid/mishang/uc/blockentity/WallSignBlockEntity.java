@@ -1,15 +1,15 @@
 package pers.solid.mishang.uc.blockentity;
 
 import com.google.common.collect.ImmutableList;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import pers.solid.mishang.uc.render.WallSignBlockEntityRenderer;
@@ -26,7 +26,7 @@ public class WallSignBlockEntity extends BlockEntityWithText {
   /**
    * 正在编辑该告示牌的玩家。若为 <code>null</code>，则表示该告示牌为空闲模式。
    */
-  public @Nullable PlayerEntity editor;
+  public @Nullable Player editor;
 
   public @Unmodifiable List<TextContext> textContexts = ImmutableList.of();
   /**
@@ -47,20 +47,20 @@ public class WallSignBlockEntity extends BlockEntityWithText {
   }
 
   @Override
-  public void readNbt(NbtCompound nbt) {
-    super.readNbt(nbt);
-    final @Nullable NbtElement nbtText = nbt.get("text");
-    if (nbtText instanceof NbtString || nbt.contains("textJson", NbtElement.STRING_TYPE)) {
+  public void load(CompoundTag nbt) {
+    super.load(nbt);
+    final @Nullable Tag nbtText = nbt.get("text");
+    if (nbtText instanceof StringTag || nbt.contains("textJson", Tag.TAG_STRING)) {
       // 如果 text 是个字符串，则读取整个 nbt 作为 TextContext。
       // 例如，整个 nbt 可以是 {text: "abc", color: "red", size: 5}。
       textContexts = ImmutableList.of(TextContext.fromNbt(nbt, createDefaultTextContext()));
-    } else if (nbtText instanceof NbtCompound) {
+    } else if (nbtText instanceof CompoundTag) {
       // 如果 text 是个复合标签，则读取这个复合标签。
       // 例如，整个 nbt 可以是 {text: {text: "abc", color: "red", size: 5}}。
       textContexts = ImmutableList.of(TextContext.fromNbt(nbtText, createDefaultTextContext()));
-    } else if (nbtText instanceof NbtList) {
+    } else if (nbtText instanceof ListTag) {
       ImmutableList.Builder<TextContext> builder = new ImmutableList.Builder<>();
-      for (NbtElement nbtElement : ((NbtList) nbtText)) {
+      for (Tag nbtElement : ((ListTag) nbtText)) {
         builder.add(TextContext.fromNbt(nbtElement, createDefaultTextContext()));
       }
       textContexts = builder.build();
@@ -71,14 +71,14 @@ public class WallSignBlockEntity extends BlockEntityWithText {
   }
 
   @Override
-  public void writeNbt(NbtCompound nbt) {
-    super.writeNbt(nbt);
+  public void saveAdditional(CompoundTag nbt) {
+    super.saveAdditional(nbt);
     if (textContexts.size() == 1) {
-      final NbtCompound nbtCompound = new NbtCompound();
-      textContexts.get(0).writeNbt(nbtCompound);
+      final CompoundTag nbtCompound = new CompoundTag();
+      textContexts.get(0).saveAdditional(nbtCompound);
       nbt.put("text", nbtCompound);
     } else {
-      final NbtList nbtList = new NbtList();
+      final ListTag nbtList = new ListTag();
       for (TextContext textContext : textContexts) {
         nbtList.add(textContext.createNbt());
       }
@@ -99,12 +99,12 @@ public class WallSignBlockEntity extends BlockEntityWithText {
   }
 
   @Override
-  public @Nullable PlayerEntity getEditor() {
+  public @Nullable Player getEditor() {
     return editor;
   }
 
   @Override
-  public void setEditor(@Nullable PlayerEntity editor) {
+  public void setEditor(@Nullable Player editor) {
     this.editor = editor;
   }
 }

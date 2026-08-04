@@ -1,49 +1,58 @@
 package pers.solid.mishang.uc.block;
 
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
-import net.minecraft.block.*;
-import net.minecraft.data.client.*;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.data.server.recipe.ShapelessRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.SingleItemRecipeJsonBuilder;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.Items;
-import net.minecraft.recipe.Ingredient;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.registry.Registries;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.function.BooleanBiFunction;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.WorldAccess;
-import net.minecraft.world.WorldView;
+import net.minecraft.world.level.block.*;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.VariantSettings;
+import pers.solid.mishang.uc.data.stubs.Model;
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.ShapelessRecipeBuilder;
+import net.minecraft.data.recipes.SingleItemRecipeBuilder;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.shapes.BooleanOp;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
 import org.jetbrains.annotations.NotNull;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.data.MishangucModels;
 import pers.solid.mishang.uc.data.MishangucTextureKeys;
 
 import java.util.Map;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
 
-public class WallLightBlock extends FacingBlock implements Waterloggable, MishangucBlock {
-  protected static final BooleanProperty WEST = Properties.WEST;
-  protected static final BooleanProperty EAST = Properties.EAST;
-  protected static final BooleanProperty SOUTH = Properties.SOUTH;
-  protected static final BooleanProperty NORTH = Properties.NORTH;
-  protected static final BooleanProperty UP = Properties.UP;
-  protected static final BooleanProperty DOWN = Properties.DOWN;
+public class WallLightBlock extends DirectionalBlock implements SimpleWaterloggedBlock, MishangucBlock {
+  protected static final BooleanProperty WEST = BlockStateProperties.WEST;
+  protected static final BooleanProperty EAST = BlockStateProperties.EAST;
+  protected static final BooleanProperty SOUTH = BlockStateProperties.SOUTH;
+  protected static final BooleanProperty NORTH = BlockStateProperties.NORTH;
+  protected static final BooleanProperty UP = BlockStateProperties.UP;
+  protected static final BooleanProperty DOWN = BlockStateProperties.DOWN;
   protected static final BiMap<Direction, BooleanProperty> DIRECTION_TO_PROPERTY = new ImmutableBiMap.Builder<Direction, BooleanProperty>()
       .put(Direction.WEST, WEST)
       .put(Direction.EAST, EAST)
@@ -57,87 +66,87 @@ public class WallLightBlock extends FacingBlock implements Waterloggable, Mishan
   public final String lightColor;
   protected final boolean largeShape;
 
-  public WallLightBlock(String lightColor, Settings settings, boolean largeShape) {
+  public WallLightBlock(String lightColor, Properties settings, boolean largeShape) {
     super(settings);
     this.lightColor = lightColor;
     this.largeShape = largeShape;
-    this.setDefaultState(getDefaultState()
-        .with(Properties.WATERLOGGED, false)
-        .with(FACING, Direction.UP));
+    this.registerDefaultState(defaultBlockState()
+        .setValue(BlockStateProperties.WATERLOGGED, false)
+        .setValue(FACING, Direction.UP));
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public boolean canPlaceAt(BlockState state, WorldView world, BlockPos pos) {
-    final Direction facing = state.get(FACING);
+  public boolean canSurvive(BlockState state, LevelReader world, BlockPos pos) {
+    final Direction facing = state.getValue(FACING);
     final Direction backDirection = facing.getOpposite();
-    final BlockPos backPos = pos.offset(backDirection);
-    final VoxelShape centerShape = Block.createCuboidShape(7, 7, 7, 9, 9, 9);
+    final BlockPos backPos = pos.relative(backDirection);
+    final VoxelShape centerShape = Block.box(7, 7, 7, 9, 9, 9);
     final BlockState backState = world.getBlockState(backPos);
-    return !VoxelShapes.matchesAnywhere(backState.getSidesShape(world, backPos).getFace(facing), centerShape, BooleanBiFunction.ONLY_SECOND) || !VoxelShapes.matchesAnywhere(backState.getCollisionShape(world, backPos).getFace(facing), centerShape, BooleanBiFunction.ONLY_SECOND);
+    return !Shapes.joinIsNotEmpty(backState.getBlockSupportShape(world, backPos).getFaceShape(facing), centerShape, BooleanOp.ONLY_SECOND) || !Shapes.joinIsNotEmpty(backState.getCollisionShape(world, backPos).getFaceShape(facing), centerShape, BooleanOp.ONLY_SECOND);
   }
 
   @Override
-  protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-    builder.add(FACING, Properties.WATERLOGGED);
+  protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    builder.add(FACING, BlockStateProperties.WATERLOGGED);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-    if (state.get(Properties.WATERLOGGED)) {
-      world.scheduleFluidTick(pos, Fluids.WATER, Fluids.WATER.getTickRate(world));
+  public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+    if (state.getValue(BlockStateProperties.WATERLOGGED)) {
+      world.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(world));
     }
 
-    return super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos);
+    return super.updateShape(state, direction, neighborState, world, pos, neighborPos);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState rotate(BlockState state, BlockRotation rotation) {
-    return state.with(FACING, rotation.rotate(state.get(FACING)));
+  public BlockState rotate(BlockState state, Rotation rotation) {
+    return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState mirror(BlockState state, BlockMirror mirror) {
-    return state.with(FACING, mirror.apply(state.get(FACING)));
+  public BlockState mirror(BlockState state, Mirror mirror) {
+    return state.setValue(FACING, mirror.mirror(state.getValue(FACING)));
   }
 
   @Override
-  public BlockState getPlacementState(ItemPlacementContext ctx) {
-    Direction direction = ctx.getSide();
+  public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+    Direction direction = ctx.getClickedFace();
     BlockState blockState =
-        ctx.getWorld().getBlockState(ctx.getBlockPos().offset(direction.getOpposite()));
-    if (blockState.isOf(this)) {
-      blockState.get(FACING);
+        ctx.getLevel().getBlockState(ctx.getClickedPos().relative(direction.getOpposite()));
+    if (blockState.is(this)) {
+      blockState.getValue(FACING);
     }
-    return this.getDefaultState()
-        .with(FACING, direction)
-        .with(Properties.WATERLOGGED,
-            ctx.getWorld().getBlockState(ctx.getBlockPos()).getFluidState().getFluid()
+    return this.defaultBlockState()
+        .setValue(FACING, direction)
+        .setValue(BlockStateProperties.WATERLOGGED,
+            ctx.getLevel().getBlockState(ctx.getClickedPos()).getFluidState().getType()
                 == Fluids.WATER);
   }
 
   @SuppressWarnings("deprecation")
   @Override
   public FluidState getFluidState(BlockState state) {
-    return state.get(Properties.WATERLOGGED)
-        ? Fluids.WATER.getStill(false)
+    return state.getValue(BlockStateProperties.WATERLOGGED)
+        ? Fluids.WATER.getSource(false)
         : super.getFluidState(state);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-    return (largeShape ? LARGE_SHAPE_PER_DIRECTION : SHAPE_PER_DIRECTION).get(state.get(FACING));
+  public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+    return (largeShape ? LARGE_SHAPE_PER_DIRECTION : SHAPE_PER_DIRECTION).get(state.getValue(FACING));
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public void prepare(BlockState state, WorldAccess world, BlockPos pos, int flags, int maxUpdateDepth) {
-    super.prepare(state, world, pos, flags, maxUpdateDepth);
-    final Direction facing = state.get(FACING);
+  public void updateIndirectNeighbourShapes(BlockState state, LevelAccessor world, BlockPos pos, int flags, int maxUpdateDepth) {
+    super.updateIndirectNeighbourShapes(state, world, pos, flags, maxUpdateDepth);
+    final Direction facing = state.getValue(FACING);
     if (this instanceof final LightConnectable lightConnectable) {
       lightConnectable.prepareConnection(state, world, pos, flags, maxUpdateDepth, facing);
     }
@@ -145,11 +154,11 @@ public class WallLightBlock extends FacingBlock implements Waterloggable, Mishan
 
   @Override
   public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
-    final Identifier id = getModelType().upload(this, getTextureMap(), blockStateModelGenerator.modelCollector);
+    final ResourceLocation id = getModelType().upload(this, getTextureMap(), blockStateModelGenerator.modelCollector);
     final BlockStateVariantMap.SingleProperty<Direction> map = BlockStateVariantMap.create(FACING);
     map.register(Direction.UP, BlockStateVariant.create().put(VariantSettings.MODEL, id));
     map.register(Direction.DOWN, BlockStateVariant.create().put(VariantSettings.MODEL, id).put(VariantSettings.X, VariantSettings.Rotation.R180));
-    for (Direction direction : Direction.Type.HORIZONTAL) {
+    for (Direction direction : Direction.Plane.HORIZONTAL) {
       map.register(direction, BlockStateVariant.create().put(VariantSettings.MODEL, id).put(VariantSettings.X, VariantSettings.Rotation.R270).put(MishangUtils.DIRECTION_Y_VARIANT, direction));
     }
     blockStateModelGenerator.blockStateCollector.accept(VariantsBlockStateSupplier.create(this, BlockStateVariant.create().put(VariantSettings.UVLOCK, true)).coordinate(map));
@@ -165,7 +174,7 @@ public class WallLightBlock extends FacingBlock implements Waterloggable, Mishan
   }
 
   public Model getModelType(String suffix) {
-    final Identifier identifier = Registries.BLOCK.getId(this);
+    final ResourceLocation identifier = BuiltInRegistries.BLOCK.getKey(this);
     String path = identifier.getPath() + suffix;
     final int i = lightColor.length();
     if (path.startsWith(lightColor) && path.charAt(i) == '_') {
@@ -177,8 +186,8 @@ public class WallLightBlock extends FacingBlock implements Waterloggable, Mishan
   }
 
   @Override
-  public CraftingRecipeJsonBuilder getCraftingRecipe() {
-    final Identifier itemId = Registries.ITEM.getId(asItem());
+  public RecipeBuilder getCraftingRecipe() {
+    final ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(asItem());
     final String itemPath = itemId.getPath();
     if (itemPath.endsWith("_tube")) {
       // 灯管方式采用切石的方式合成，这里直接作为主要的合成方式。
@@ -199,22 +208,22 @@ public class WallLightBlock extends FacingBlock implements Waterloggable, Mishan
       } else {
         throw new IllegalStateException(String.format("Can't generate recipes: Cannot determine the type of %s according to its id", this));
       }
-      return SingleItemRecipeJsonBuilder.createStonecutting(Ingredient.ofItems(fullLight), RecipeCategory.DECORATIONS, this, outputCount)
-          .criterion(RecipeProvider.hasItem(fullLight), RecipeProvider.conditionsFromItem(fullLight));
+      return SingleItemRecipeBuilder.stonecutting(Ingredient.of(fullLight), RecipeCategory.DECORATIONS, this, outputCount)
+          .unlockedBy(FabricRecipeProvider.getHasName(fullLight), FabricRecipeProvider.has(fullLight));
     } else {
       // 非灯管方块，采用与混凝土的合成。
-      final Identifier tubeId = itemId.withSuffixedPath("_tube");
-      final @NotNull Item tube = Registries.ITEM.getOrEmpty(tubeId).orElseThrow(() -> new IllegalArgumentException(String.format("Can't generate recipes: %s does not have a corresponding tube block (with id [%s])", this, tubeId)));
-      return ShapelessRecipeJsonBuilder.create(RecipeCategory.DECORATIONS, this, 1)
-          .input(tube)
-          .input(Items.GRAY_CONCRETE)
-          .criterion(RecipeProvider.hasItem(tube), RecipeProvider.conditionsFromItem(tube));
+      final ResourceLocation tubeId = itemId.withSuffix("_tube");
+      final @NotNull Item tube = BuiltInRegistries.ITEM.getOptional(tubeId).orElseThrow(() -> new IllegalArgumentException(String.format("Can't generate recipes: %s does not have a corresponding tube block (with id [%s])", this, tubeId)));
+      return ShapelessRecipeBuilder.shapeless(RecipeCategory.DECORATIONS, this, 1)
+          .requires(tube)
+          .requires(Items.GRAY_CONCRETE)
+          .unlockedBy(FabricRecipeProvider.getHasName(tube), FabricRecipeProvider.has(tube));
     }
   }
 
   public static @NotNull Item getBaseLight(String namespace, String lightColor, Block self) {
-    final Identifier fullLightId = new Identifier(namespace, lightColor + "_light");
-    return Registries.ITEM.getOrEmpty(fullLightId).orElseThrow(() -> new IllegalArgumentException(String.format("Can't generate recipes: %s does not have a corresponding base light block (with id [%s])", self, fullLightId)));
+    final ResourceLocation fullLightId = new ResourceLocation(namespace, lightColor + "_light");
+    return BuiltInRegistries.ITEM.getOptional(fullLightId).orElseThrow(() -> new IllegalArgumentException(String.format("Can't generate recipes: %s does not have a corresponding base light block (with id [%s])", self, fullLightId)));
   }
 
   @Override

@@ -1,30 +1,32 @@
 package pers.solid.mishang.uc.data;
 
+import net.minecraft.core.registries.BuiltInRegistries;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput;
-import net.fabricmc.fabric.api.datagen.v1.provider.FabricTagProvider;
-import net.fabricmc.fabric.api.tag.convention.v1.ConventionalBlockTags;
-import net.fabricmc.fabric.api.tag.convention.v1.ConventionalItemTags;
-import net.minecraft.block.Block;
-import net.minecraft.block.SlabBlock;
-import net.minecraft.block.StairsBlock;
-import net.minecraft.item.Item;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.registry.tag.TagBuilder;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.DyeColor;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.StairBlock;
+import net.minecraft.world.item.Item;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagBuilder;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.DyeColor;
 import org.jetbrains.annotations.NotNull;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.Mishanguc;
 import pers.solid.mishang.uc.annotations.MiningLevel;
 import pers.solid.mishang.uc.block.*;
 import pers.solid.mishang.uc.blocks.*;
+import pers.solid.mishang.uc.data.stubs.ConventionalBlockTags;
+import pers.solid.mishang.uc.data.stubs.ConventionalItemTags;
+import pers.solid.mishang.uc.data.stubs.FabricDataOutput;
+import pers.solid.mishang.uc.data.stubs.FabricTagProvider;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
@@ -45,7 +47,7 @@ public class MishangucBlockTagProvider extends FabricTagProvider.BlockTagProvide
   protected MishangucTagBuilder<Block> needsDiamondTool;
   protected final Multimap<DyeColor, Item> coloredItems = ArrayListMultimap.create();
 
-  protected MishangucBlockTagProvider(FabricDataOutput output, CompletableFuture<RegistryWrapper.WrapperLookup> registriesFuture) {
+  protected MishangucBlockTagProvider(FabricDataOutput output, CompletableFuture<HolderLookup.Provider> registriesFuture) {
     super(output, registriesFuture);
     this.affiliate = new MishangucItemTagProvider(output, registriesFuture, this);
   }
@@ -53,7 +55,7 @@ public class MishangucBlockTagProvider extends FabricTagProvider.BlockTagProvide
   @SuppressWarnings("deprecation")
   protected MishangucTagBuilder<Block> getMishangucTagBuilder(TagKey<Block> tag) {
     final TagBuilder tagBuilder = getTagBuilder(tag);
-    return new MishangucTagBuilder<>(tag, tagBuilder, block -> block.getRegistryEntry().registryKey());
+    return new MishangucTagBuilder<>(tag, tagBuilder, block -> net.minecraft.core.registries.BuiltInRegistries.BLOCK.getResourceKey(block).orElseThrow());
   }
 
   protected MishangucTagBuilder<Block> blockTagOnly(TagKey<Block> blockTagKey) {
@@ -61,28 +63,28 @@ public class MishangucBlockTagProvider extends FabricTagProvider.BlockTagProvide
   }
 
   protected MishangucTagBuilder<Block> blockTagOnly(String path) {
-    return getMishangucTagBuilder(TagKey.of(RegistryKeys.BLOCK, Mishanguc.id(path)));
+    return getMishangucTagBuilder(TagKey.create(Registries.BLOCK, Mishanguc.id(path)));
   }
 
   protected MishangucTagBuilder<Block> blockTagWithItem(TagKey<Block> blockTagKey, TagKey<Item> itemTagKey) {
-    Preconditions.checkArgument(blockTagKey.id().equals(itemTagKey.id()));
+    Preconditions.checkArgument(blockTagKey.location().equals(itemTagKey.location()));
     final var tag = getMishangucTagBuilder(blockTagKey);
     blockTagsWithItem.put(blockTagKey, itemTagKey);
     return tag;
   }
 
   protected MishangucTagBuilder<Block> blockTagWithItem(String path) {
-    final TagKey<Block> tagKey = TagKey.of(RegistryKeys.BLOCK, Mishanguc.id(path));
+    final TagKey<Block> tagKey = TagKey.create(Registries.BLOCK, Mishanguc.id(path));
     final var tag = getMishangucTagBuilder(tagKey);
-    blockTagsWithItem.put(tagKey, TagKey.of(RegistryKeys.ITEM, Mishanguc.id(path)));
+    blockTagsWithItem.put(tagKey, TagKey.create(Registries.ITEM, Mishanguc.id(path)));
     return tag;
   }
 
   protected void init() {
-    pickaxeMineable = blockTagOnly(BlockTags.PICKAXE_MINEABLE);
-    shovelMineable = blockTagOnly(BlockTags.SHOVEL_MINEABLE);
-    axeMineable = blockTagOnly(BlockTags.AXE_MINEABLE);
-    hoeMineable = blockTagOnly(BlockTags.HOE_MINEABLE);
+    pickaxeMineable = blockTagOnly(BlockTags.MINEABLE_WITH_PICKAXE);
+    shovelMineable = blockTagOnly(BlockTags.MINEABLE_WITH_SHOVEL);
+    axeMineable = blockTagOnly(BlockTags.MINEABLE_WITH_AXE);
+    hoeMineable = blockTagOnly(BlockTags.MINEABLE_WITH_HOE);
     needsStoneTool = blockTagOnly(BlockTags.NEEDS_STONE_TOOL);
     needsIronTool = blockTagOnly(BlockTags.NEEDS_IRON_TOOL);
     needsDiamondTool = blockTagOnly(BlockTags.NEEDS_DIAMOND_TOOL);
@@ -602,7 +604,7 @@ public class MishangucBlockTagProvider extends FabricTagProvider.BlockTagProvide
   }
 
   @Override
-  protected void configure(RegistryWrapper.WrapperLookup wrapperLookup) {
+  protected void configure(HolderLookup.Provider wrapperLookup) {
     init();
     roads();
     signs();
@@ -610,7 +612,7 @@ public class MishangucBlockTagProvider extends FabricTagProvider.BlockTagProvide
     handrails();
     coloredBlocks();
 
-    blockTagWithItem(BlockTags.STAIRS, ItemTags.STAIRS).add(blocks().stream().filter(block -> block instanceof StairsBlock).toArray(Block[]::new));
+    blockTagWithItem(BlockTags.STAIRS, ItemTags.STAIRS).add(blocks().stream().filter(block -> block instanceof StairBlock).toArray(Block[]::new));
     blockTagWithItem(BlockTags.SLABS, ItemTags.SLABS).add(blocks().stream().filter(block -> block instanceof SlabBlock).toArray(Block[]::new));
   }
 }

@@ -1,14 +1,14 @@
 package pers.solid.mishang.uc.render;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.InteractionHand;
 import pers.solid.mishang.uc.MishangucClient;
+import pers.solid.mishang.uc.data.stubs.WorldRenderContext;
+import pers.solid.mishang.uc.data.stubs.WorldRenderEvents;
 
 /**
  * <p>物品实现此接口后，玩家拿着物品时就会调用 {@link #renderBlockOutline}。{@link #RENDERER} 是个匿名的 {@link
@@ -20,18 +20,18 @@ import pers.solid.mishang.uc.MishangucClient;
  * <p>Items implementing this interface must be annotated as:
  *
  * <pre>
- * {@code @EnvironmentInterface(value = EnvType.CLIENT, itf = RendersBlockOutline.class)}</pre>
+ * {@code }</pre>
  */
-@Environment(EnvType.CLIENT)
+@OnlyIn(Dist.CLIENT)
 public interface RendersBlockOutline {
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   WorldRenderEvents.BlockOutline RENDERER =
       (worldRenderContext, blockOutlineContext) -> {
-        if (!(blockOutlineContext.entity() instanceof final PlayerEntity player)) {
+        if (!(blockOutlineContext.entity() instanceof final Player player)) {
           return true;
         }
-        for (final Hand hand : new Hand[]{Hand.MAIN_HAND, Hand.OFF_HAND}) {
-          final ItemStack stackInHand = player.getStackInHand(hand);
+        for (final InteractionHand hand : new InteractionHand[]{InteractionHand.MAIN_HAND, InteractionHand.OFF_HAND}) {
+          final ItemStack stackInHand = player.getItemInHand(hand);
           final Item item = stackInHand.getItem();
           if (item instanceof final RendersBlockOutline rendersBlockOutline) {
             if (!rendersBlockOutline.renderBlockOutline(player, stackInHand, worldRenderContext, blockOutlineContext, hand)) {
@@ -51,10 +51,10 @@ public interface RendersBlockOutline {
    *
    * @since 0.2.0 加入了参数 hand，表示持有此物品的手。这是考虑到主手和副手都有可能持有此物品，当副手持有此物品时，只能应用“使用”效果，但不能应用“攻击”效果。此参数可以用来进行区分。
    */
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   boolean renderBlockOutline(
-      PlayerEntity player,
+      Player player,
       ItemStack itemStack,
       WorldRenderContext worldRenderContext,
-      WorldRenderContext.BlockOutlineContext blockOutlineContext, Hand hand);
+      WorldRenderContext.BlockOutlineContext blockOutlineContext, InteractionHand hand);
 }

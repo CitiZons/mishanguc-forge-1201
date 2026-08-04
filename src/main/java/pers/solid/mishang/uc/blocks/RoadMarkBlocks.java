@@ -2,9 +2,9 @@ package pers.solid.mishang.uc.blocks;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.minecraft.block.MapColor;
-import net.minecraft.util.Identifier;
+import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.ApiStatus;
 import pers.solid.mishang.uc.annotations.Cutout;
 import pers.solid.mishang.uc.block.RoadMarkBlock;
@@ -14,7 +14,7 @@ import pers.solid.mishang.uc.block.RoadMarkBlock;
  */
 @ApiStatus.AvailableSince("1.1.0")
 public class RoadMarkBlocks extends MishangucBlocks {
-  private static final FabricBlockSettings ROAD_MARK_SETTINGS = FabricBlockSettings.create().strength(0.5f).mapColor(MapColor.WHITE).nonOpaque().collidable(false);
+  private static final BlockBehaviour.Properties ROAD_MARK_SETTINGS = BlockBehaviour.Properties.of().strength(0.5f).mapColor(MapColor.SNOW).noOcclusion().noCollission();
   @Cutout
   public static final RoadMarkBlock ARROW_STRAIGHT_MARK = directional("arrow_straight");
   @Cutout
@@ -57,11 +57,11 @@ public class RoadMarkBlocks extends MishangucBlocks {
   public static final RoadMarkBlock LANE_NON_VEHICLE_MARK = directional("lane_non_vehicle");
 
   private static RoadMarkBlock directional(String name) {
-    return RoadMarkBlock.createDirectionalFacing(new Identifier("mishanguc:block/" + name), ROAD_MARK_SETTINGS);
+    return RoadMarkBlock.createDirectionalFacing(new ResourceLocation("mishanguc:block/" + name), ROAD_MARK_SETTINGS);
   }
 
   private static RoadMarkBlock axis(String name) {
-    return RoadMarkBlock.createAxisFacing(new Identifier("mishanguc:block/" + name), ROAD_MARK_SETTINGS);
+    return RoadMarkBlock.createAxisFacing(new ResourceLocation("mishanguc:block/" + name), ROAD_MARK_SETTINGS);
   }
 
   /**

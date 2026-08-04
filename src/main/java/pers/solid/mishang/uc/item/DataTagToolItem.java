@@ -1,180 +1,180 @@
 package pers.solid.mishang.uc.item;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.api.EnvironmentInterface;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.fabricmc.fabric.api.networking.v1.PacketSender;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.block.Block;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.command.BlockDataObject;
-import net.minecraft.command.EntityDataObject;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.World;
+import net.minecraft.server.commands.data.BlockDataAccessor;
+import net.minecraft.server.commands.data.EntityDataAccessor;
+
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.MultiBufferSource;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.commands.arguments.NbtPathArgument;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import pers.solid.mishang.uc.data.stubs.ClientPlayNetworking;
+import pers.solid.mishang.uc.data.stubs.PacketByteBufs;
+import pers.solid.mishang.uc.data.stubs.ServerPlayNetworking;
 import pers.solid.mishang.uc.mixin.WorldRendererInvoker;
 import pers.solid.mishang.uc.render.RendersBeforeOutline;
 import pers.solid.mishang.uc.util.NbtPrettyPrinter;
 import pers.solid.mishang.uc.util.TextBridge;
 
 import java.util.List;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.player.LocalPlayer;
+import pers.solid.mishang.uc.data.stubs.WorldRenderContext;
+import pers.solid.mishang.uc.data.stubs.PacketSender;
 
-@EnvironmentInterface(value = EnvType.CLIENT, itf = RendersBeforeOutline.class)
 public class DataTagToolItem extends BlockToolItem implements InteractsWithEntity, RendersBeforeOutline {
-  public DataTagToolItem(Settings settings, @Nullable Boolean includesFluid) {
+  public DataTagToolItem(Properties settings, @Nullable Boolean includesFluid) {
     super(settings, includesFluid);
   }
 
   @Override
-  public void appendTooltip(ItemStack stack, @Nullable World world, List<Text> tooltip, TooltipContext context) {
-    super.appendTooltip(stack, world, tooltip, context);
-    tooltip.add(TextBridge.translatable("item.mishanguc.data_tag_tool.tooltip").formatted(Formatting.GRAY));
+  public void appendHoverText(ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag context) {
+    super.appendHoverText(stack, world, tooltip, context);
+    tooltip.add(TextBridge.translatable("item.mishanguc.data_tag_tool.tooltip").withStyle(ChatFormatting.GRAY));
   }
 
   @Override
-  public ActionResult useOnBlock(
-      ItemStack stack, PlayerEntity player,
-      World world,
+  public InteractionResult useOnBlock(
+      ItemStack stack, Player player,
+      Level world,
       BlockHitResult blockHitResult,
-      Hand hand,
+      InteractionHand hand,
       boolean fluidIncluded) {
-    if (!world.isClient) {
-      return getBlockDataOf((ServerPlayerEntity) player, (ServerWorld) world, blockHitResult.getBlockPos());
+    if (!world.isClientSide) {
+      return getBlockDataOf((ServerPlayer) player, (ServerLevel) world, blockHitResult.getBlockPos());
     } else {
-      return ActionResult.SUCCESS;
+      return InteractionResult.SUCCESS;
     }
   }
 
   @Override
-  public ActionResult beginAttackBlock(
-      ItemStack stack, PlayerEntity player, World world, Hand hand, BlockPos pos, Direction direction, boolean fluidIncluded) {
-    if (!world.isClient) return getBlockDataOf((ServerPlayerEntity) player, (ServerWorld) world, pos);
-    else return ActionResult.SUCCESS;
+  public InteractionResult beginAttackBlock(
+      ItemStack stack, Player player, Level world, InteractionHand hand, BlockPos pos, Direction direction, boolean fluidIncluded) {
+    if (!world.isClientSide) return getBlockDataOf((ServerPlayer) player, (ServerLevel) world, pos);
+    else return InteractionResult.SUCCESS;
   }
 
-  public ActionResult getBlockDataOf(ServerPlayerEntity player, ServerWorld world, BlockPos blockPos) {
+  public InteractionResult getBlockDataOf(ServerPlayer player, ServerLevel world, BlockPos blockPos) {
     final @Nullable BlockEntity blockEntity = world.getBlockEntity(blockPos);
-    final PacketByteBuf buf = PacketByteBufs.create();
-    buf.writeIdentifier(Registries.BLOCK.getId(world.getBlockState(blockPos).getBlock()));
+    final FriendlyByteBuf buf = PacketByteBufs.create();
+    buf.writeResourceLocation(BuiltInRegistries.BLOCK.getKey(world.getBlockState(blockPos).getBlock()));
     buf.writeBlockPos(blockPos);
     if (blockEntity == null) {
       buf.writeBoolean(false);
-      ServerPlayNetworking.send(player, new Identifier("mishanguc", "get_block_data"), buf);
+      ServerPlayNetworking.send(player, new ResourceLocation("mishanguc", "get_block_data"), buf);
     } else {
-      final BlockDataObject blockDataObject = new BlockDataObject(world.getBlockEntity(blockPos), blockPos);
+      final BlockDataAccessor blockDataObject = new BlockDataAccessor(world.getBlockEntity(blockPos), blockPos);
       buf.writeBoolean(true);
-      buf.writeNbt(blockDataObject.getNbt());
-      ServerPlayNetworking.send(player, new Identifier("mishanguc", "get_block_data"), buf);
+      buf.writeNbt(blockDataObject.getData());
+      ServerPlayNetworking.send(player, new ResourceLocation("mishanguc", "get_block_data"), buf);
     }
-    return ActionResult.SUCCESS;
+    return InteractionResult.SUCCESS;
   }
 
-  public ActionResult getEntityDataOf(ServerPlayerEntity player, Entity entity) {
-    final EntityDataObject entityDataObject = new EntityDataObject(entity);
-    final NbtCompound nbt = entityDataObject.getNbt();
-    final PacketByteBuf buf = PacketByteBufs.create();
-    buf.writeText(entity.getName());
-    buf.writeBlockPos(entity.getBlockPos());
+  public InteractionResult getEntityDataOf(ServerPlayer player, Entity entity) {
+    final EntityDataAccessor entityDataObject = new EntityDataAccessor(entity);
+    final CompoundTag nbt = entityDataObject.getData();
+    final FriendlyByteBuf buf = PacketByteBufs.create();
+    buf.writeComponent(entity.getName());
+    buf.writeBlockPos(entity.blockPosition());
     buf.writeNbt(nbt);
-    ServerPlayNetworking.send(player, new Identifier("mishanguc", "get_entity_data"), buf);
-    return ActionResult.SUCCESS;
+    ServerPlayNetworking.send(player, new ResourceLocation("mishanguc", "get_entity_data"), buf);
+    return InteractionResult.SUCCESS;
   }
 
   @Override
-  public @NotNull ActionResult attackEntityCallback(
-      PlayerEntity player,
-      World world,
-      Hand hand,
+  public @NotNull InteractionResult attackEntityCallback(
+      Player player,
+      Level world,
+      InteractionHand hand,
       Entity entity,
       @Nullable EntityHitResult hitResult) {
-    if (player.isSpectator()) return ActionResult.PASS;
-    else if (!world.isClient) return getEntityDataOf((ServerPlayerEntity) player, entity);
-    else return ActionResult.SUCCESS;
+    if (player.isSpectator()) return InteractionResult.PASS;
+    else if (!world.isClientSide) return getEntityDataOf((ServerPlayer) player, entity);
+    else return InteractionResult.SUCCESS;
   }
 
   @Override
-  public @NotNull ActionResult useEntityCallback(
-      PlayerEntity player,
-      World world,
-      Hand hand,
+  public @NotNull InteractionResult useEntityCallback(
+      Player player,
+      Level world,
+      InteractionHand hand,
       Entity entity,
       @Nullable EntityHitResult hitResult) {
-    if (!world.isClient && !player.isSpectator()) return getEntityDataOf((ServerPlayerEntity) player, entity);
-    else return ActionResult.SUCCESS;
+    if (!world.isClientSide && !player.isSpectator()) return getEntityDataOf((ServerPlayer) player, entity);
+    else return InteractionResult.SUCCESS;
   }
 
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   @Override
-  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, ClientPlayerEntity player, Hand hand) {
+  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, LocalPlayer player, InteractionHand hand) {
     if (hitResult instanceof EntityHitResult entityHitResult && !player.isSpectator()) {
       final Entity entity = entityHitResult.getEntity();
-      final MatrixStack matrices = context.matrixStack();
-      final VertexConsumerProvider consumers = context.consumers();
+      final PoseStack matrices = context.matrixStack();
+      final MultiBufferSource consumers = context.consumers();
       if (consumers == null) return;
-      final VertexConsumer vertexConsumer = consumers.getBuffer(RenderLayer.getLines());
-      final Vec3d cameraPos = context.camera().getPos();
-      WorldRendererInvoker.drawCuboidShapeOutline(matrices, vertexConsumer, VoxelShapes.cuboid(entity.getBoundingBox()), -cameraPos.x, -cameraPos.y, -cameraPos.z, 0f, 1f, 0f, 0.8f);
+      final VertexConsumer vertexConsumer = consumers.getBuffer(RenderType.lines());
+      final Vec3 cameraPos = context.camera().getPosition();
+      WorldRendererInvoker.drawCuboidShapeOutline(matrices, vertexConsumer, Shapes.create(entity.getBoundingBox()), -cameraPos.x, -cameraPos.y, -cameraPos.z, 0f, 1f, 0f, 0.8f);
     }
   }
 
   /**
    * 用于接收服务器的 {@code mishanguc:get_block_data} 的数据包。用户使用该工具点击方块后，服务器获取其数据并传给客户端，客户端收到数据后，将消息反馈至聊天框。
    */
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   @ApiStatus.AvailableSince("0.1.7")
   public static class BlockDataReceiver implements ClientPlayNetworking.PlayChannelHandler {
     @Override
-    public void receive(MinecraftClient client, ClientPlayNetworkHandler handler, PacketByteBuf buf, PacketSender responseSender) {
-      final Identifier blockId = buf.readIdentifier();
+    public void receive(Minecraft minecraft, ClientPacketListener handler, FriendlyByteBuf buf, PacketSender responseSender) {
+      final ResourceLocation blockId = buf.readResourceLocation();
       final BlockPos blockPos = buf.readBlockPos();
       final boolean hasData = buf.readBoolean();
-      final Block block = Registries.BLOCK.get(blockId);
+      final Block block = BuiltInRegistries.BLOCK.get(blockId);
       if (hasData) {
         // 由于此处仅限客户端执行，因此可以放心调用 Block#getName。
-        final NbtCompound blockData = buf.readNbt();
-        client.execute(() -> {
-          client.inGameHud.getChatHud().addMessage(
-              TextBridge.translatable("debug.mishanguc.dataTag.block.header", String.format("%s %s %s", blockPos.getX(), blockPos.getY(), blockPos.getZ()), block.getName().formatted(Formatting.BOLD))
-                  .formatted(Formatting.YELLOW));
-          client.inGameHud.getChatHud().addMessage(NbtPrettyPrinter.serialize(blockData));
+        final CompoundTag blockData = buf.readNbt();
+        minecraft.execute(() -> {
+          minecraft.gui.getChat().addMessage(
+              TextBridge.translatable("debug.mishanguc.dataTag.block.header", String.format("%s %s %s", blockPos.getX(), blockPos.getY(), blockPos.getZ()), block.getName().withStyle(ChatFormatting.BOLD))
+                  .withStyle(ChatFormatting.YELLOW));
+          minecraft.gui.getChat().addMessage(NbtPrettyPrinter.serialize(blockData));
         });
       } else {
         // 此时认为该方块没有数据。
-        client.execute(() -> client.inGameHud.getChatHud().addMessage(
-            TextBridge.translatable("debug.mishanguc.dataTag.block.null", String.format("%s %s %s", blockPos.getX(), blockPos.getY(), blockPos.getZ()), block.getName().formatted(Formatting.BOLD))
-                .formatted(Formatting.RED)));
+        minecraft.execute(() -> minecraft.gui.getChat().addMessage(
+            TextBridge.translatable("debug.mishanguc.dataTag.block.null", String.format("%s %s %s", blockPos.getX(), blockPos.getY(), blockPos.getZ()), block.getName().withStyle(ChatFormatting.BOLD))
+                .withStyle(ChatFormatting.RED)));
       }
     }
   }
@@ -182,18 +182,18 @@ public class DataTagToolItem extends BlockToolItem implements InteractsWithEntit
   /**
    * 用于接收服务器的 {@code mishanguc:get_entity_data} 数据包。用户使用该工具点击实体后，服务器获取其数据并传给客户端，客户端收到数据后，将消息反馈至聊天框。
    */
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   @ApiStatus.AvailableSince("0.1.7")
   public static class EntityDataReceiver implements ClientPlayNetworking.PlayChannelHandler {
     @Override
-    public void receive(MinecraftClient client, ClientPlayNetworkHandler handler, PacketByteBuf buf, PacketSender responseSender) {
-      final Text entityName = buf.readText();
+    public void receive(Minecraft minecraft, ClientPacketListener handler, FriendlyByteBuf buf, PacketSender responseSender) {
+      final Component entityName = buf.readComponent();
       final BlockPos entityPos = buf.readBlockPos();
-      final NbtCompound entityNbt = buf.readNbt();
-      client.inGameHud.getChatHud().addMessage(TextBridge.translatable("debug.mishanguc.dataTag.entity.entity", String.format(
-              "%s %s %s", entityPos.getX(), entityPos.getY(), entityPos.getZ()), TextBridge.literal("").append(entityName).formatted(Formatting.BOLD))
-          .formatted(Formatting.YELLOW));
-      client.inGameHud.getChatHud().addMessage(NbtPrettyPrinter.serialize(entityNbt));
+      final CompoundTag entityNbt = buf.readNbt();
+      minecraft.gui.getChat().addMessage(TextBridge.translatable("debug.mishanguc.dataTag.entity.entity", String.format(
+              "%s %s %s", entityPos.getX(), entityPos.getY(), entityPos.getZ()), TextBridge.literal("").append(entityName).withStyle(ChatFormatting.BOLD))
+          .withStyle(ChatFormatting.YELLOW));
+      minecraft.gui.getChat().addMessage(NbtPrettyPrinter.serialize(entityNbt));
     }
   }
 }

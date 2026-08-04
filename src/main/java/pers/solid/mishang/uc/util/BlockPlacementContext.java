@@ -1,21 +1,21 @@
 package pers.solid.mishang.uc.util;
 
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.enums.SlabType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.*;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.sound.BlockSoundGroup;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.Properties;
-import net.minecraft.state.property.Property;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.item.*;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.MishangUtils;
@@ -24,14 +24,17 @@ import pers.solid.mishang.uc.mixin.BucketItemAccessor;
 import pers.solid.mishang.uc.mixin.ItemUsageContextInvoker;
 
 import java.util.Objects;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.context.UseOnContext;
 
 /**
  * 用于预测方块放置时的位置以及方块状态，同时处理方块实体。主要用于强制放置工具和快速建造工具，既可用于放置和破坏，也可用于相应的轮廓绘制。
  */
 public class BlockPlacementContext {
-  public final @NotNull World world;
+  public final @NotNull Level world;
   public final @NotNull BlockPos blockPos;
-  public final @NotNull PlayerEntity player;
+  public final @NotNull Player player;
   public final @NotNull ItemStack stack;
   public final @NotNull BlockHitResult hit;
   /**
@@ -55,8 +58,7 @@ public class BlockPlacementContext {
    */
   public final boolean includesFluid;
 
-
-  public final @NotNull ItemPlacementContext placementContext;
+  public final @NotNull BlockPlaceContext placementContext;
   /**
    * 如果需要放置方块，则方块放置在此位置。<br>
    * The {@link BlockPos} to place the block if to place it.
@@ -71,7 +73,7 @@ public class BlockPlacementContext {
    * 拿着方块物品的手。<br>
    * The hand that holds the BlockItem.
    */
-  public @Nullable Hand hand;
+  public @Nullable InteractionHand hand;
   /**
    * 手中的物品堆。该物品堆的物品必须是方块物品，或者是 {@link CarryingToolItem}。如果手中的物品堆是空的，或者不是方块，则该值为 {@code null}。<br>
    * The {@link ItemStack} in the {@code hand}. The item in the <code>ItemStack</code> must be a
@@ -83,12 +85,12 @@ public class BlockPlacementContext {
    * 请留意这个 {@link #player} 如果是 <code>null</code> 将会抛出异常！因此构造时请一定留意！ Please pay attention when
    * constructing because it throws exceptions when {@link #player} is <code>null</code>!
    */
-  public BlockPlacementContext(ItemUsageContext context, boolean includesFluid) {
+  public BlockPlacementContext(UseOnContext context, boolean includesFluid) {
     this(
-        context.getWorld(),
-        context.getBlockPos(),
+        context.getLevel(),
+        context.getClickedPos(),
         Objects.requireNonNull(context.getPlayer()),
-        context.getStack(),
+        context.getItemInHand(),
         ((ItemUsageContextInvoker) context).invokeGetHitResult(),
         includesFluid);
   }
@@ -104,17 +106,17 @@ public class BlockPlacementContext {
         offsetPos,
         old.player,
         old.stack,
-        new BlockHitResult(old.hit.getPos().add(
+        new BlockHitResult(old.hit.getLocation().add(
             offsetPos.getX() - old.hit.getBlockPos().getX(),
             offsetPos.getY() - old.hit.getBlockPos().getY(),
-            offsetPos.getZ() - old.hit.getBlockPos().getZ()), old.hit.getSide(), offsetPos, old.hit.isInsideBlock()),
+            offsetPos.getZ() - old.hit.getBlockPos().getZ()), old.hit.getDirection(), offsetPos, old.hit.isInside()),
         old.includesFluid);
   }
 
   public BlockPlacementContext(
-      World world,
+      Level world,
       @NotNull BlockPos blockPos,
-      @NotNull PlayerEntity player,
+      @NotNull Player player,
       @NotNull ItemStack stack,
       BlockHitResult hit,
       boolean includesFluid) {
@@ -132,31 +134,31 @@ public class BlockPlacementContext {
     // 需要放置的方块
     @Nullable BlockState stateToPlace1 = null;
     @Nullable ItemStack stackInHand1 = null;
-    ItemPlacementContext placementContext1 = null;
+    BlockPlaceContext placementContext1 = null;
 
-    for (@NotNull Hand hand1 : Hand.values()) {
-      ItemStack stackInHand0 = this.player.getStackInHand(hand1);
+    for (@NotNull InteractionHand hand1 : InteractionHand.values()) {
+      ItemStack stackInHand0 = this.player.getItemInHand(hand1);
       if (stackInHand0.getItem() instanceof final BlockItem blockItem) {
         // 若手中持有方块物品，则 stateToPlace 为该物品
         /*
           手中物品堆中的方块物品对应的方块。
          */
         final @Nullable Block handBlock = blockItem.getBlock();
-        placementContext1 = new ItemPlacementContext(player, hand1, stackInHand0, hit);
-        stateToPlace1 = handBlock == null ? null : handBlock.getPlacementState(placementContext1);
+        placementContext1 = new BlockPlaceContext(player, hand1, stackInHand0, hit);
+        stateToPlace1 = handBlock == null ? null : handBlock.getStateForPlacement(placementContext1);
         if (stateToPlace1 == null) {
           placementContext1 = null;
           continue;
         }
 
         // 尝试 placeFromTag
-        final NbtCompound blockStateTag = stackInHand0.getSubNbt("BlockStateTag");
+        final CompoundTag blockStateTag = stackInHand0.getTagElement("BlockStateTag");
         if (blockStateTag != null) {
-          final StateManager<Block, BlockState> stateManager = handBlock.getStateManager();
-          for (String key : blockStateTag.getKeys()) {
+          final StateDefinition<Block, BlockState> stateManager = handBlock.getStateDefinition();
+          for (String key : blockStateTag.getAllKeys()) {
             final Property<?> property = stateManager.getProperty(key);
             if (property != null) {
-              stateToPlace1 = MishangUtils.with(stateToPlace1, property, blockStateTag.getString(key));
+              stateToPlace1 = MishangUtils.setValue(stateToPlace1, property, blockStateTag.getString(key));
             }
           }
         }
@@ -164,48 +166,48 @@ public class BlockPlacementContext {
         hand = hand1;
         break;
       } else if (stackInHand0.getItem() instanceof CarryingToolItem) {
-        placementContext1 = new ItemPlacementContext(player, hand1, stackInHand0, hit);
+        placementContext1 = new BlockPlaceContext(player, hand1, stackInHand0, hit);
         stateToPlace1 = CarryingToolItem.getHoldingBlockState(stackInHand0, world);
         stackInHand1 = stackInHand0;
         hand = hand1;
         break;
       } else if (stackInHand0.getItem() instanceof FlintAndSteelItem) {
-        stateToPlace1 = Blocks.FIRE.getDefaultState();
+        stateToPlace1 = Blocks.FIRE.defaultBlockState();
       } else if (stackInHand0.getItem() instanceof BucketItem bucketItem) {
-        stateToPlace1 = ((BucketItemAccessor) bucketItem).getFluid().getDefaultState().getBlockState();
+        stateToPlace1 = ((BucketItemAccessor) bucketItem).getFluid().defaultFluidState().createLegacyBlock();
       }
     }
 
     stackInHand = stackInHand1;
-    placementContext = placementContext1 == null ? new ItemPlacementContext(player, hand, hitState.getBlock().asItem().getDefaultStack(), hit) : placementContext1;
+    placementContext = placementContext1 == null ? new BlockPlaceContext(player, hand, hitState.getBlock().asItem().getDefaultInstance(), hit) : placementContext1;
     final boolean tweakSlabPlacement;
-    if (placementContext.getStack().getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof SlabBlock) {
-      tweakSlabPlacement = !BlockPos.ofFloored(hit.getPos().offset(hit.getSide(), 0.25)).equals(hit.getBlockPos());
+    if (placementContext.getItemInHand().getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof SlabBlock) {
+      tweakSlabPlacement = !BlockPos.containing(hit.getLocation().relative(hit.getDirection(), 0.25)).equals(hit.getBlockPos());
     } else {
       tweakSlabPlacement = false;
     }
-    posToPlace = (includesFluid || tweakSlabPlacement) ? blockPos.offset(hit.getSide()) : placementContext.getBlockPos();
+    posToPlace = (includesFluid || tweakSlabPlacement) ? blockPos.relative(hit.getDirection()) : placementContext.getClickedPos();
     stateToReplace = world.getBlockState(posToPlace);
     if (stateToPlace1 == null) {
       // 手中没有有效的方块物品，则使用 hitState。
-      boolean canReplaceExisting = placementContext.canReplaceExisting() && !includesFluid;
-      stateToPlace1 = canReplaceExisting ? hitState.getBlock().getPlacementState(placementContext) : null;
+      boolean canReplaceExisting = placementContext.replacingClickedOnBlock() && !includesFluid;
+      stateToPlace1 = canReplaceExisting ? hitState.getBlock().getStateForPlacement(placementContext) : null;
     }
     if (stateToPlace1 == null) {
       stateToPlace1 = hitState;
     }
 
     // 尝试放置含水
-    if (!includesFluid && stateToPlace1.getProperties().contains(Properties.WATERLOGGED)) {
-      stateToPlace1 = stateToPlace1.with(Properties.WATERLOGGED, stateToReplace.getFluidState().getFluid() == Fluids.WATER);
+    if (!includesFluid && stateToPlace1.getProperties().contains(BlockStateProperties.WATERLOGGED)) {
+      stateToPlace1 = stateToPlace1.setValue(BlockStateProperties.WATERLOGGED, stateToReplace.getFluidState().getType() == Fluids.WATER);
     }
 
     // 对台阶进行修改
-    if (tweakSlabPlacement && stateToPlace1.contains(SlabBlock.TYPE) && stateToPlace1.get(SlabBlock.TYPE) == SlabType.DOUBLE) {
-      if (hitState.getBlock() instanceof SlabBlock && hitState.contains(SlabBlock.TYPE)) {
-        stateToPlace1 = stateToPlace1.with(SlabBlock.TYPE, hitState.get(SlabBlock.TYPE));
+    if (tweakSlabPlacement && stateToPlace1.hasProperty(SlabBlock.TYPE) && stateToPlace1.getValue(SlabBlock.TYPE) == SlabType.DOUBLE) {
+      if (hitState.getBlock() instanceof SlabBlock && hitState.hasProperty(SlabBlock.TYPE)) {
+        stateToPlace1 = stateToPlace1.setValue(SlabBlock.TYPE, hitState.getValue(SlabBlock.TYPE));
       } else {
-        stateToPlace1 = stateToPlace1.with(SlabBlock.TYPE, (placementContext.getHitPos().y - blockPos.getY() > 0.5) ? SlabType.TOP : SlabType.BOTTOM);
+        stateToPlace1 = stateToPlace1.setValue(SlabBlock.TYPE, (placementContext.getClickLocation().y - blockPos.getY() > 0.5) ? SlabType.TOP : SlabType.BOTTOM);
       }
     }
 
@@ -217,7 +219,7 @@ public class BlockPlacementContext {
    * 放置方块。
    */
   public boolean setBlockState(int flags) {
-    return world.setBlockState(posToPlace, stateToPlace, flags);
+    return world.setBlock(posToPlace, stateToPlace, flags);
   }
 
   /**
@@ -226,11 +228,11 @@ public class BlockPlacementContext {
   public void setBlockEntity() {
     BlockEntity entityToPlace = world.getBlockEntity(posToPlace);
     if (stackInHand != null) {
-      BlockItem.writeNbtToBlockEntity(world, player, posToPlace, stackInHand);
+      BlockItem.updateCustomBlockEntityTag(world, player, posToPlace, stackInHand);
     } else if (hitEntity != null && entityToPlace != null) {
-      entityToPlace.readNbt(hitEntity.createNbt());
-      entityToPlace.markDirty();
-      world.updateListeners(posToPlace, entityToPlace.getCachedState(), entityToPlace.getCachedState(), Block.NOTIFY_ALL);
+      entityToPlace.load(hitEntity.saveWithFullMetadata());
+      entityToPlace.setChanged();
+      world.sendBlockUpdated(posToPlace, entityToPlace.getBlockState(), entityToPlace.getBlockState(), Block.UPDATE_ALL);
     }
   }
 
@@ -240,37 +242,37 @@ public class BlockPlacementContext {
    * Checks if the {@link #stateToPlace} can be placed at {@link #posToPlace}. For example, if
    * {@link #stateToPlace} is a flower, and {@link #posToPlace} is hung in the midair, the methods
    * returns <code>false</code>.<br>
-   * Calls {@link BlockState#canPlaceAt}.
+   * Calls {@link BlockState#canSurvive}.
    */
   public boolean canPlace() {
-    if (stateToPlace.getBlock() instanceof OperatorBlock && !player.hasPermissionLevel(2)) {
+    if (stateToPlace.getBlock() instanceof GameMasterBlock && !player.hasPermissions(2)) {
       return false;
     }
-    return stateToPlace.canPlaceAt(world, posToPlace);
+    return stateToPlace.canSurvive(world, posToPlace);
   }
 
   /**
    * 检查方块能否被替换。例如，如果 {@link #stateToReplace} 是草或者水，则返回 <code>true</code>。<br>
    * Checks if the {@link #stateToReplace} can be replaced in the placement-context. For example, if
    * the {@link #stateToReplace} is a grass or water, then it returns <code>true</code>.<br>
-   * Calls {@link BlockState#canReplace}.
+   * Calls {@link BlockState#canBeReplaced}.
    */
-  public boolean canReplace() {
-    return stateToReplace.canReplace(placementContext);
+  public boolean canBeReplaced() {
+    return stateToReplace.canBeReplaced(placementContext);
   }
 
   /**
    * 播放声音。该函数不会检查 {@link #world} 是否为客户端世界，需要在调用时手动检查。<br>
-   * Play the sound of the block placed. Does not check if {@link #world} is client world. You may
+   * Play the sound of the block placed. Does not check if {@link #world} is minecraft world. You may
    * manually check it.
    */
   public void playSound() {
-    BlockSoundGroup blockSoundGroup = stateToPlace.getSoundGroup();
+    SoundType blockSoundGroup = stateToPlace.getSoundType();
     world.playSound(
         player,
         posToPlace,
         blockSoundGroup.getPlaceSound(),
-        SoundCategory.BLOCKS,
+        SoundSource.BLOCKS,
         (blockSoundGroup.getVolume() + 1.0F) / 2.0F,
         blockSoundGroup.getPitch() * 0.8F);
   }

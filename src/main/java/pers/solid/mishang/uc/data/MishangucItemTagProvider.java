@@ -1,15 +1,15 @@
 package pers.solid.mishang.uc.data;
 
+import net.minecraft.core.registries.BuiltInRegistries;
+
 import com.google.common.base.Predicates;
-import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput;
-import net.fabricmc.fabric.api.datagen.v1.provider.FabricTagProvider;
-import net.minecraft.block.Block;
-import net.minecraft.item.Item;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.registry.tag.TagBuilder;
-import net.minecraft.registry.tag.TagKey;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.item.Item;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagBuilder;
+import net.minecraft.tags.TagKey;
 import org.jetbrains.annotations.NotNull;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.Mishanguc;
@@ -17,6 +17,8 @@ import pers.solid.mishang.uc.block.ColoredBlock;
 import pers.solid.mishang.uc.block.GlassHandrailBlock;
 import pers.solid.mishang.uc.block.SimpleHandrailBlock;
 import pers.solid.mishang.uc.blocks.HandrailBlocks;
+import pers.solid.mishang.uc.data.stubs.FabricDataOutput;
+import pers.solid.mishang.uc.data.stubs.FabricTagProvider;
 import pers.solid.mishang.uc.item.MishangucItems;
 
 import java.lang.reflect.Field;
@@ -27,7 +29,7 @@ import static pers.solid.mishang.uc.MishangUtils.*;
 public class MishangucItemTagProvider extends FabricTagProvider.ItemTagProvider {
   private final MishangucBlockTagProvider blockTagProvider;
 
-  public MishangucItemTagProvider(FabricDataOutput output, CompletableFuture<RegistryWrapper.WrapperLookup> completableFuture, @NotNull MishangucBlockTagProvider blockTagProvider) {
+  public MishangucItemTagProvider(FabricDataOutput output, CompletableFuture<HolderLookup.Provider> completableFuture, @NotNull MishangucBlockTagProvider blockTagProvider) {
     super(output, completableFuture, blockTagProvider);
     this.blockTagProvider = blockTagProvider;
   }
@@ -35,7 +37,7 @@ public class MishangucItemTagProvider extends FabricTagProvider.ItemTagProvider 
   @SuppressWarnings("deprecation")
   protected MishangucTagBuilder<Item> getMishangucTagBuilder(TagKey<Item> tag) {
     final TagBuilder tagBuilder = this.getTagBuilder(tag);
-    return new MishangucTagBuilder<>(tag, tagBuilder, item -> item.getRegistryEntry().registryKey());
+    return new MishangucTagBuilder<>(tag, tagBuilder, item -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getResourceKey(item).orElseThrow());
   }
 
   protected void tools() {
@@ -87,7 +89,7 @@ public class MishangucItemTagProvider extends FabricTagProvider.ItemTagProvider 
   }
 
   @Override
-  protected void configure(RegistryWrapper.WrapperLookup lookup) {
+  protected void configure(HolderLookup.Provider lookup) {
     tools();
     handrailItems();
     coloredItems();
@@ -101,6 +103,6 @@ public class MishangucItemTagProvider extends FabricTagProvider.ItemTagProvider 
   }
 
   protected MishangucTagBuilder<Item> itemTag(String path) {
-    return getMishangucTagBuilder(TagKey.of(RegistryKeys.ITEM, Mishanguc.id(path)));
+    return getMishangucTagBuilder(TagKey.create(Registries.ITEM, Mishanguc.id(path)));
   }
 }

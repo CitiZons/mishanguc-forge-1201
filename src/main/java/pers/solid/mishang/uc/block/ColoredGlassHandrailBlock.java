@@ -1,46 +1,49 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.server.loottable.BlockLootTableGenerator;
-import net.minecraft.item.ItemStack;
-import net.minecraft.loot.LootTable;
-import net.minecraft.loot.provider.number.ConstantLootNumberProvider;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.BlockView;
+import pers.solid.mishang.uc.data.stubs.FabricBlockLootTableProvider;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.data.loot.BlockLootSubProvider;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
+import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.BlockGetter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.blockentity.SimpleColoredBlockEntity;
 
 import java.util.List;
+import net.minecraft.world.level.block.StairBlock;
 
 public class ColoredGlassHandrailBlock extends GlassHandrailBlock implements ColoredBlock {
-  public ColoredGlassHandrailBlock(Block baseBlock, Settings settings, String frameTexture, String decorationTexture) {
+  public ColoredGlassHandrailBlock(Block baseBlock, Properties settings, String frameTexture, String decorationTexture) {
     super(baseBlock, settings, frameTexture, decorationTexture, ColoredCentral::new, ColoredCorner::new, ColoredStair::new, ColoredOuter::new);
   }
 
   @Override
-  public ItemStack getPickStack(BlockView world, BlockPos pos, BlockState state) {
-    return getColoredPickStack(world, pos, state, super::getPickStack);
+  public ItemStack getCloneItemStack(BlockGetter world, BlockPos pos, BlockState state) {
+    return getColoredPickStack(world, pos, state, super::getCloneItemStack);
   }
 
   @Override
-  public void appendTooltip(ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
-    super.appendTooltip(stack, world, tooltip, options);
+  public void appendHoverText(ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
+    super.appendHoverText(stack, world, tooltip, options);
     ColoredBlock.appendColorTooltip(stack, tooltip);
   }
 
   @Nullable
   @Override
-  public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+  public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
     return new SimpleColoredBlockEntity(pos, state);
   }
 
   @Override
-  public LootTable.Builder getLootTable(BlockLootTableGenerator blockLootTableGenerator) {
+  public LootTable.Builder getLootTable(FabricBlockLootTableProvider blockLootTableGenerator) {
     return blockLootTableGenerator.drops(this).apply(COPY_COLOR_LOOT_FUNCTION);
   }
 
@@ -56,24 +59,24 @@ public class ColoredGlassHandrailBlock extends GlassHandrailBlock implements Col
     }
 
     @Override
-    public ItemStack getPickStack(BlockView world, BlockPos pos, BlockState state) {
-      return getColoredPickStack(world, pos, state, super::getPickStack);
+    public ItemStack getCloneItemStack(BlockGetter world, BlockPos pos, BlockState state) {
+      return getColoredPickStack(world, pos, state, super::getCloneItemStack);
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
-      super.appendTooltip(stack, world, tooltip, options);
+    public void appendHoverText(ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
+      super.appendHoverText(stack, world, tooltip, options);
       ColoredBlock.appendColorTooltip(stack, tooltip);
     }
 
     @Nullable
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
       return new SimpleColoredBlockEntity(pos, state);
     }
 
     @Override
-    public LootTable.Builder getLootTable(BlockLootTableGenerator blockLootTableGenerator) {
+    public LootTable.Builder getLootTable(FabricBlockLootTableProvider blockLootTableGenerator) {
       return blockLootTableGenerator.drops(this).apply(COPY_COLOR_LOOT_FUNCTION);
     }
 
@@ -90,25 +93,25 @@ public class ColoredGlassHandrailBlock extends GlassHandrailBlock implements Col
     }
 
     @Override
-    public ItemStack getPickStack(BlockView world, BlockPos pos, BlockState state) {
-      return getColoredPickStack(world, pos, state, super::getPickStack);
+    public ItemStack getCloneItemStack(BlockGetter world, BlockPos pos, BlockState state) {
+      return getColoredPickStack(world, pos, state, super::getCloneItemStack);
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
-      super.appendTooltip(stack, world, tooltip, options);
+    public void appendHoverText(ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
+      super.appendHoverText(stack, world, tooltip, options);
       ColoredBlock.appendColorTooltip(stack, tooltip);
     }
 
     @Nullable
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
       return new SimpleColoredBlockEntity(pos, state);
     }
 
     @Override
-    public LootTable.Builder getLootTable(BlockLootTableGenerator blockLootTableGenerator) {
-      return blockLootTableGenerator.drops(this, ConstantLootNumberProvider.create(2)).apply(COPY_COLOR_LOOT_FUNCTION);
+    public LootTable.Builder getLootTable(FabricBlockLootTableProvider blockLootTableGenerator) {
+      return blockLootTableGenerator.drops(this, ConstantValue.exactly(2)).apply(COPY_COLOR_LOOT_FUNCTION);
     }
 
     @Override
@@ -124,24 +127,24 @@ public class ColoredGlassHandrailBlock extends GlassHandrailBlock implements Col
     }
 
     @Override
-    public ItemStack getPickStack(BlockView world, BlockPos pos, BlockState state) {
-      return getColoredPickStack(world, pos, state, super::getPickStack);
+    public ItemStack getCloneItemStack(BlockGetter world, BlockPos pos, BlockState state) {
+      return getColoredPickStack(world, pos, state, super::getCloneItemStack);
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
-      super.appendTooltip(stack, world, tooltip, options);
+    public void appendHoverText(ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
+      super.appendHoverText(stack, world, tooltip, options);
       ColoredBlock.appendColorTooltip(stack, tooltip);
     }
 
     @Nullable
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
       return new SimpleColoredBlockEntity(pos, state);
     }
 
     @Override
-    public LootTable.Builder getLootTable(BlockLootTableGenerator blockLootTableGenerator) {
+    public LootTable.Builder getLootTable(FabricBlockLootTableProvider blockLootTableGenerator) {
       return blockLootTableGenerator.drops(this).apply(COPY_COLOR_LOOT_FUNCTION);
     }
 
@@ -158,24 +161,24 @@ public class ColoredGlassHandrailBlock extends GlassHandrailBlock implements Col
     }
 
     @Override
-    public ItemStack getPickStack(BlockView world, BlockPos pos, BlockState state) {
-      return getColoredPickStack(world, pos, state, super::getPickStack);
+    public ItemStack getCloneItemStack(BlockGetter world, BlockPos pos, BlockState state) {
+      return getColoredPickStack(world, pos, state, super::getCloneItemStack);
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
-      super.appendTooltip(stack, world, tooltip, options);
+    public void appendHoverText(ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
+      super.appendHoverText(stack, world, tooltip, options);
       ColoredBlock.appendColorTooltip(stack, tooltip);
     }
 
     @Nullable
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
       return new SimpleColoredBlockEntity(pos, state);
     }
 
     @Override
-    public LootTable.Builder getLootTable(BlockLootTableGenerator blockLootTableGenerator) {
+    public LootTable.Builder getLootTable(FabricBlockLootTableProvider blockLootTableGenerator) {
       return blockLootTableGenerator.drops(this).apply(COPY_COLOR_LOOT_FUNCTION);
     }
 

@@ -2,12 +2,12 @@ package pers.solid.mishang.uc.screen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Unmodifiable;
 import pers.solid.mishang.uc.blockentity.HungSignBlockEntity;
@@ -18,7 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Environment(EnvType.CLIENT)
+@OnlyIn(Dist.CLIENT)
 public class HungSignBlockEditScreen extends AbstractSignBlockEditScreen<HungSignBlockEntity> {
   /**
    * 告示牌正在被编辑的方向。
@@ -46,7 +46,7 @@ public class HungSignBlockEditScreen extends AbstractSignBlockEditScreen<HungSig
   }
 
   @Override
-  protected List<ButtonWidget> getTextHolders() {
+  protected List<Button> getTextHolders() {
     return List.of(placeHolder, copyFromBackButton);
   }
 
@@ -67,8 +67,8 @@ public class HungSignBlockEditScreen extends AbstractSignBlockEditScreen<HungSig
   /**
    * 从背面复制文本的按钮。复制过程中会进行镜像。
    */
-  public final ButtonWidget copyFromBackButton =
-      new ButtonWidget.Builder(
+  public final Button copyFromBackButton =
+      new Button.Builder(
           TextBridge.translatable("message.mishanguc.copy_from_back"),
           button -> {
             final HungSignBlockEntity entity = this.entity;
@@ -85,5 +85,5 @@ public class HungSignBlockEditScreen extends AbstractSignBlockEditScreen<HungSig
                   // 留意添加到的位置是列表末尾。
                   textFieldListWidget.addTextField(-1, flip, false);
                 });
-          }).dimensions(this.width / 2 - 80, 35, 160, 20).tooltip(Tooltip.of(TextBridge.translatable("message.mishanguc.copy_from_back.description"))).build();
+          }).bounds(this.width / 2 - 80, 35, 160, 20).tooltip(Tooltip.create(TextBridge.translatable("message.mishanguc.copy_from_back.description"))).build();
 }

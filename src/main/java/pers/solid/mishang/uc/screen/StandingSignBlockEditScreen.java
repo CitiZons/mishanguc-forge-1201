@@ -1,11 +1,11 @@
 package pers.solid.mishang.uc.screen;
 
 import com.google.common.collect.ImmutableList;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import pers.solid.mishang.uc.blockentity.StandingSignBlockEntity;
@@ -14,7 +14,7 @@ import pers.solid.mishang.uc.util.TextBridge;
 
 import java.util.List;
 
-@Environment(EnvType.CLIENT)
+@OnlyIn(Dist.CLIENT)
 @ApiStatus.AvailableSince("1.0.2")
 public class StandingSignBlockEditScreen extends AbstractSignBlockEditScreen<StandingSignBlockEntity> {
 
@@ -35,7 +35,7 @@ public class StandingSignBlockEditScreen extends AbstractSignBlockEditScreen<Sta
   }
 
   @Override
-  protected List<ButtonWidget> getTextHolders() {
+  protected List<Button> getTextHolders() {
     return List.of(placeHolder, copyFromBackButton);
   }
 
@@ -51,8 +51,7 @@ public class StandingSignBlockEditScreen extends AbstractSignBlockEditScreen<Sta
     }
   }
 
-
-  public final ButtonWidget copyFromBackButton = new ButtonWidget.Builder(TextBridge.translatable("message.mishanguc.copy_from_back"), button -> {
+  public final Button copyFromBackButton = new Button.Builder(TextBridge.translatable("message.mishanguc.copy_from_back"), button -> {
     final StandingSignBlockEntity entity = this.entity;
     if (entity.editedSide == null) {
       return;
@@ -66,5 +65,5 @@ public class StandingSignBlockEditScreen extends AbstractSignBlockEditScreen<Sta
           // 留意添加到的位置是列表末尾。
           textFieldListWidget.addTextField(-1, flip, false);
         });
-  }).dimensions(this.width / 2 - 80, 35, 160, 20).tooltip(Tooltip.of(TextBridge.translatable("message.mishanguc.copy_from_back.description"))).build();
+  }).bounds(this.width / 2 - 80, 35, 160, 20).tooltip(Tooltip.create(TextBridge.translatable("message.mishanguc.copy_from_back.description"))).build();
 }

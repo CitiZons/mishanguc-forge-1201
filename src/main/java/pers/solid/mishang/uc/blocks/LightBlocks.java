@@ -1,6 +1,6 @@
 package pers.solid.mishang.uc.blocks;
 
-import net.minecraft.item.Items;
+import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.ApiStatus;
 import pers.solid.mishang.uc.block.*;
 
@@ -21,7 +21,6 @@ public final class LightBlocks extends MishangucBlocks {
 
   public static final WallLightBlock WHITE_LARGE_WALL_LIGHT_TUBE =
       new WallLightBlock("white", WHITE_WALL_LIGHT_SETTINGS, true);
-
 
   public static final StripWallLightBlock WHITE_THIN_STRIP_WALL_LIGHT_TUBE =
       new StripWallLightBlock("white", WHITE_WALL_LIGHT_SETTINGS);
@@ -96,7 +95,6 @@ public final class LightBlocks extends MishangucBlocks {
   public static final WallLightBlock YELLOW_LARGE_WALL_LIGHT_TUBE =
       new WallLightBlock("yellow", YELLOW_WALL_LIGHT_SETTINGS, true);
 
-
   public static final StripWallLightBlock YELLOW_THIN_STRIP_WALL_LIGHT_TUBE =
       new StripWallLightBlock("yellow", YELLOW_WALL_LIGHT_SETTINGS);
 
@@ -168,7 +166,6 @@ public final class LightBlocks extends MishangucBlocks {
   public static final WallLightBlock ORANGE_LARGE_WALL_LIGHT_TUBE =
       new WallLightBlock("orange", ORANGE_WALL_LIGHT_SETTINGS, true);
 
-
   public static final StripWallLightBlock ORANGE_THIN_STRIP_WALL_LIGHT_TUBE =
       new StripWallLightBlock("orange", ORANGE_WALL_LIGHT_SETTINGS);
 
@@ -231,7 +228,6 @@ public final class LightBlocks extends MishangucBlocks {
 
   public static final WallLightBlock GREEN_LARGE_WALL_LIGHT_TUBE =
       new WallLightBlock("green", GREEN_WALL_LIGHT_SETTINGS, true);
-
 
   public static final StripWallLightBlock GREEN_THIN_STRIP_WALL_LIGHT_TUBE =
       new StripWallLightBlock("green", GREEN_WALL_LIGHT_SETTINGS);
@@ -298,7 +294,6 @@ public final class LightBlocks extends MishangucBlocks {
 
   public static final WallLightBlock CYAN_LARGE_WALL_LIGHT_TUBE =
       new WallLightBlock("cyan", CYAN_WALL_LIGHT_SETTINGS, true);
-
 
   public static final StripWallLightBlock CYAN_THIN_STRIP_WALL_LIGHT_TUBE =
       new StripWallLightBlock("cyan", CYAN_WALL_LIGHT_SETTINGS);
@@ -370,7 +365,6 @@ public final class LightBlocks extends MishangucBlocks {
 
   public static final WallLightBlock PINK_LARGE_WALL_LIGHT_TUBE =
       new WallLightBlock("pink", PINK_WALL_LIGHT_SETTINGS, true);
-
 
   public static final StripWallLightBlock PINK_THIN_STRIP_WALL_LIGHT_TUBE =
       new StripWallLightBlock("pink", PINK_WALL_LIGHT_SETTINGS);

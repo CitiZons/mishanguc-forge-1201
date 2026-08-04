@@ -2,8 +2,8 @@ package pers.solid.mishang.uc.util;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
-import net.minecraft.text.MutableText;
-import net.minecraft.util.StringIdentifiable;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.StringRepresentable;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -11,7 +11,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * 文本的水平对齐方式。
  */
-public enum HorizontalAlign implements StringIdentifiable {
+public enum HorizontalAlign implements StringRepresentable {
   LEFT,
   CENTER,
   RIGHT;
@@ -23,12 +23,12 @@ public enum HorizontalAlign implements StringIdentifiable {
   }
 
   @Override
-  public String asString() {
+  public String getSerializedName() {
     return M.get(this);
   }
 
-  public MutableText getName() {
-    return TextBridge.translatable("horizontal_align.mishanguc." + asString());
+  public MutableComponent getName() {
+    return TextBridge.translatable("horizontal_align.mishanguc." + getSerializedName());
   }
 
   /**

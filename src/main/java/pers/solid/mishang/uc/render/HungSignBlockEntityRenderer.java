@@ -1,13 +1,13 @@
 package pers.solid.mishang.uc.render;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.block.entity.BlockEntityRenderer;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.core.Direction;
+import com.mojang.math.Axis;
 import org.jetbrains.annotations.NotNull;
 import pers.solid.mishang.uc.block.HungSignBlock;
 import pers.solid.mishang.uc.blockentity.HungSignBlockEntity;
@@ -20,12 +20,12 @@ import java.util.Map;
  * @see pers.solid.mishang.uc.block.HungSignBlock
  * @see HungSignBlockEntity
  */
-@Environment(EnvType.CLIENT)
+@OnlyIn(Dist.CLIENT)
 public class HungSignBlockEntityRenderer<T extends HungSignBlockEntity> implements BlockEntityRenderer<T> {
 
-  private final BlockEntityRendererFactory.Context ctx;
+  private final BlockEntityRendererProvider.Context ctx;
 
-  public HungSignBlockEntityRenderer(BlockEntityRendererFactory.Context ctx) {
+  public HungSignBlockEntityRenderer(BlockEntityRendererProvider.Context ctx) {
     this.ctx = ctx;
   }
 
@@ -33,12 +33,12 @@ public class HungSignBlockEntityRenderer<T extends HungSignBlockEntity> implemen
   public void render(
       HungSignBlockEntity entity,
       float tickDelta,
-      MatrixStack matrices,
-      VertexConsumerProvider vertexConsumers,
+      PoseStack matrices,
+      MultiBufferSource vertexConsumers,
       int light,
       int overlay) {
     matrices.translate(0.5, 9 / 16f, 0.5);
-    final Direction.Axis axis = entity.getCachedState().get(HungSignBlock.AXIS);
+    final Direction.Axis axis = entity.getBlockState().getValue(HungSignBlock.AXIS);
     for (Map.Entry<@NotNull Direction, @NotNull List<@NotNull TextContext>> entry :
         entity.texts.entrySet()) {
       final Direction direction = entry.getKey();
@@ -47,14 +47,14 @@ public class HungSignBlockEntityRenderer<T extends HungSignBlockEntity> implemen
         continue;
       }
       final boolean glowing = entity.glowing.contains(direction);
-      matrices.push();
-      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-direction.asRotation()));
+      matrices.pushPose();
+      matrices.mulPose(Axis.YP.rotationDegrees(-direction.toYRot()));
       matrices.translate(0, 0, 1.0125 / 32f);
       matrices.scale(1 / 16f, -1 / 16f, 1 / 16f);
       for (TextContext textContext : textContexts) {
-        textContext.draw(ctx.getTextRenderer(), matrices, vertexConsumers, glowing ? 15728880 : light, 16, entity.getHeight());
+        textContext.draw(ctx.getFont(), matrices, vertexConsumers, glowing ? 15728880 : light, 16, entity.getHeight());
       }
-      matrices.pop();
+      matrices.popPose();
     }
   }
 }

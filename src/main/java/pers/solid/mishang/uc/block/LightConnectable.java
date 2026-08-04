@@ -1,10 +1,10 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.WorldAccess;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.LevelAccessor;
 
 /**
  * 适用于墙上的（包括角落的）灯方块的接口，以判断该方块在某个面上的特定方向是否存在连接。
@@ -23,13 +23,13 @@ public interface LightConnectable extends MishangucBlock {
   /**
    * 放置方块后，将与之不毗邻但可能产生连接的 {@link AutoConnectWallLightBlock} 进行连接。该方法将会由 {@link Block#prepare} 调用。
    *
-   * @see WallLightBlock#prepare(BlockState, WorldAccess, BlockPos, int, int)
-   * @see CornerLightBlock#prepare(BlockState, WorldAccess, BlockPos, int, int)
+   * @see WallLightBlock#updateIndirectNeighbourShapes(BlockState, LevelAccessor, BlockPos, int, int)
+   * @see CornerLightBlock#updateIndirectNeighbourShapes(BlockState, LevelAccessor, BlockPos, int, int)
    */
   @SuppressWarnings({"AlibabaAbstractMethodOrInterfaceMethodMustUseJavadoc"})
   default void prepareConnection(
       BlockState state,
-      WorldAccess world,
+      LevelAccessor world,
       BlockPos pos,
       int flags,
       int maxUpdateDepth,
@@ -37,14 +37,14 @@ public interface LightConnectable extends MishangucBlock {
     if (state.getBlock() instanceof final LightConnectable lightConnectable) {
       for (Direction direction : Direction.values()) {
         if (lightConnectable.isConnectedIn(state, facing, direction)) {
-          final BlockPos neighborPos2 = pos.offset(direction).offset(facing.getOpposite());
+          final BlockPos neighborPos2 = pos.relative(direction).relative(facing.getOpposite());
           final BlockState neighborState2 = world.getBlockState(neighborPos2);
           if (neighborState2.getBlock() instanceof AutoConnectWallLightBlock) {
-            Block.replace(
+            Block.updateOrDestroy(
                 neighborState2,
-                neighborState2.getStateForNeighborUpdate(
+                neighborState2.updateShape(
                     facing,
-                    world.getBlockState(neighborPos2.offset(facing)),
+                    world.getBlockState(neighborPos2.relative(facing)),
                     world,
                     neighborPos2,
                     pos),

@@ -1,9 +1,9 @@
 package pers.solid.mishang.uc.item;
 
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
+import net.minecraft.data.recipes.RecipeBuilder;
 
 public interface MishangucItem {
-  default CraftingRecipeJsonBuilder getCraftingRecipe() {
+  default RecipeBuilder getCraftingRecipe() {
     return null;
   }
 

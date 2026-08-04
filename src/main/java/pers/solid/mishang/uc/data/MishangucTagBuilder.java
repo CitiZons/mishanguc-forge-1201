@@ -1,21 +1,21 @@
 package pers.solid.mishang.uc.data;
 
-import net.minecraft.data.server.tag.TagProvider;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.tag.TagBuilder;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.Identifier;
+import net.minecraft.data.tags.TagsProvider;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagBuilder;
+import net.minecraft.tags.TagKey;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-public class MishangucTagBuilder<T> extends TagProvider.ProvidedTagBuilder<T> {
+public class MishangucTagBuilder<T> extends TagsProvider.TagAppender<T> {
   private final TagKey<T> tagKey;
-  private final Function<T, RegistryKey<T>> valueToKey;
+  private final Function<T, ResourceKey<T>> valueToKey;
 
-  protected MishangucTagBuilder(TagKey<T> tagKey, TagBuilder builder, Function<T, RegistryKey<T>> valueToKey) {
-    super(builder);
+  protected MishangucTagBuilder(TagKey<T> tagKey, TagBuilder builder, Function<T, ResourceKey<T>> valueToKey) {
+    super(builder, "mishanguc");
     this.tagKey = tagKey;
     this.valueToKey = valueToKey;
   }
@@ -31,16 +31,14 @@ public class MishangucTagBuilder<T> extends TagProvider.ProvidedTagBuilder<T> {
     return this;
   }
 
-
   @SafeVarargs
-  @Override
-  public final MishangucTagBuilder<T> add(RegistryKey<T>... keys) {
+  public final MishangucTagBuilder<T> addKeys(ResourceKey<T>... keys) {
     super.add(keys);
     return this;
   }
 
   @Override
-  public MishangucTagBuilder<T> addOptional(Identifier id) {
+  public MishangucTagBuilder<T> addOptional(ResourceLocation id) {
     super.addOptional(id);
     return this;
   }
@@ -70,7 +68,7 @@ public class MishangucTagBuilder<T> extends TagProvider.ProvidedTagBuilder<T> {
   }
 
   @Override
-  public MishangucTagBuilder<T> addOptionalTag(Identifier id) {
+  public MishangucTagBuilder<T> addOptionalTag(ResourceLocation id) {
     super.addOptionalTag(id);
     return this;
   }

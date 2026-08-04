@@ -1,38 +1,41 @@
 package pers.solid.mishang.uc;
 
+import pers.solid.mishang.uc.MishangUtils;
+
 import com.google.common.base.Predicates;
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.minecraft.block.Block;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.item.ClampedModelPredicateProvider;
-import net.minecraft.client.item.ModelPredicateProviderRegistry;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Util;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.client.event.EntityRenderersEvent;
+import net.minecraftforge.client.event.RegisterColorHandlersEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.item.ItemProperties;
+import net.minecraft.client.renderer.item.ClampedItemPropertyFunction;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.Validate;
 import org.jetbrains.annotations.Nullable;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.BlockHitResult;
 import pers.solid.mishang.uc.block.AbstractRoadBlock;
 import pers.solid.mishang.uc.block.ColoredBlock;
 import pers.solid.mishang.uc.block.StandingSignBlock;
 import pers.solid.mishang.uc.blockentity.*;
 import pers.solid.mishang.uc.blocks.MishangucBlocks;
+import pers.solid.mishang.uc.data.stubs.ClientPlayNetworking;
 import pers.solid.mishang.uc.item.CarryingToolItem;
 import pers.solid.mishang.uc.item.DataTagToolItem;
 import pers.solid.mishang.uc.item.MishangucItems;
@@ -44,9 +47,12 @@ import pers.solid.mishang.uc.screen.WallSignBlockEditScreen;
 
 import java.awt.*;
 import java.util.concurrent.atomic.AtomicReference;
+import pers.solid.mishang.uc.data.stubs.WorldRenderEvents;
+import pers.solid.mishang.uc.data.stubs.ClientCommandRegistrationCallback;
 
-@Environment(EnvType.CLIENT)
-public class MishangucClient implements ClientModInitializer {
+@OnlyIn(Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = "mishanguc", bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+public class MishangucClient {
   /**
    * @see MishangucRules#FORCE_PLACING_TOOL_ACCESS
    */
@@ -56,60 +62,35 @@ public class MishangucClient implements ClientModInitializer {
    */
   public static final AtomicReference<MishangucRules.ToolAccess> CLIENT_CARRYING_TOOL_ACCESS = new AtomicReference<>(MishangucRules.ToolAccess.ALL);
 
-  @Override
-  public void onInitializeClient() {
+  @SubscribeEvent
+  public static void onClientSetup(FMLClientSetupEvent event) {
     registerBlockLayers();
 
-    registerRenderEvents();
+    // 方块轮廓/选区渲染由 pers.solid.mishang.uc.render.BlockOutlineRenderHandler
+    // 通过 Forge 的 RenderHighlightEvent.Block 处理（自动经 @EventBusSubscriber 注册到 FORGE 总线）。
 
-    registerBlockEntityRenderers();
-
-    registerBlockColors();
-
+    // 注册客户端网络接收器。
     registerNetworking();
 
-    registerModelPredicateProviders();
+    event.enqueueWork(() -> {
+      registerModelPredicateProviders();
+    });
   }
 
-  private static void registerModelPredicateProviders() {
-    // 模型谓词提供器
-    ModelPredicateProviderRegistry.register(MishangucItems.EXPLOSION_TOOL,
-        Mishanguc.id("explosion_power"),
-        new ClampedModelPredicateProvider() {
-          @Override
-          public float unclampedCall(ItemStack stack, @Nullable ClientWorld world, @Nullable LivingEntity entity, int seed) {
-            return MishangucItems.EXPLOSION_TOOL.power(stack);
-          }
-
-          @SuppressWarnings("deprecation")
-          @Override
-          public float call(ItemStack itemStack, @Nullable ClientWorld clientWorld, @Nullable LivingEntity livingEntity, int i) {
-            return unclampedCall(itemStack, clientWorld, livingEntity, i);
-          }
-        });
-
-    SignPresets.loadAll();
-
-    ClientCommandRegistrationCallback.EVENT.register(SignPresetCommand.INSTANCE);
-
-    ModelPredicateProviderRegistry.register(MishangucItems.EXPLOSION_TOOL, Mishanguc.id("explosion_create_fire"), (stack, world, entity, seed) -> MishangucItems.EXPLOSION_TOOL.createFire(stack) ? 1 : 0);
-    ModelPredicateProviderRegistry.register(MishangucItems.FAST_BUILDING_TOOL, Mishanguc.id("fast_building_range"), (stack, world, entity, seed) -> MishangucItems.FAST_BUILDING_TOOL.getRange(stack) / 64f);
-    ModelPredicateProviderRegistry.register(MishangucItems.CARRYING_TOOL, Mishanguc.id("is_holding_block"), (stack, world, entity, seed) -> BooleanUtils.toInteger(CarryingToolItem.hasHoldingBlockState(stack)));
-    ModelPredicateProviderRegistry.register(MishangucItems.CARRYING_TOOL, Mishanguc.id("is_holding_entity"), (stack, world, entity, seed) -> BooleanUtils.toInteger(CarryingToolItem.hasHoldingEntity(stack)));
-  }
-
+  /**
+   * 注册客户端的网络接收器（对应 Fabric 的 {@code ClientPlayNetworking.registerGlobalReceiver}）。
+   */
   private static void registerNetworking() {
-    // 网络通信
-    // 客户端收到服务器发来的编辑告示牌的数据包时，打开编辑界面，允许用户编辑。
+    // 客户端收到服务器发来的“编辑告示牌”数据包时，打开对应的编辑界面。
     ClientPlayNetworking.registerGlobalReceiver(
-        new Identifier("mishanguc", "edit_sign"),
+        new ResourceLocation("mishanguc", "edit_sign"),
         (client, handler, buf, responseSender) -> {
           try {
             final BlockPos blockPos = buf.readBlockPos();
             final BlockEntity blockEntity =
-                client.world != null ? client.world.getBlockEntity(blockPos) : null;
+                client.level != null ? client.level.getBlockEntity(blockPos) : null;
             if (blockEntity instanceof final HungSignBlockEntity hungSignBlockEntity) {
-              final Direction direction = buf.readEnumConstant(Direction.class);
+              final Direction direction = buf.readEnum(Direction.class);
               client.execute(() ->
                   client.setScreen(new HungSignBlockEditScreen(hungSignBlockEntity, direction, blockPos)));
             } else if (blockEntity instanceof final WallSignBlockEntity wallSignBlockEntity) {
@@ -117,7 +98,7 @@ public class MishangucClient implements ClientModInitializer {
                   client.setScreen(new WallSignBlockEditScreen(wallSignBlockEntity, blockPos)));
             } else if (blockEntity instanceof final StandingSignBlockEntity standingSignBlockEntity) {
               final BlockHitResult blockHitResult = buf.readBlockHitResult();
-              final Boolean isFront = StandingSignBlock.getHitSide(blockEntity.getCachedState(), blockHitResult);
+              final Boolean isFront = StandingSignBlock.getHitSide(blockEntity.getBlockState(), blockHitResult);
               if (isFront != null) {
                 client.execute(() -> client.setScreen(new StandingSignBlockEditScreen(standingSignBlockEntity, blockPos, isFront)));
               }
@@ -126,21 +107,32 @@ public class MishangucClient implements ClientModInitializer {
             Mishanguc.MISHANG_LOGGER.error("Error when creating sign edit screen:", exception);
           }
         });
-    ClientPlayNetworking.registerGlobalReceiver(new Identifier("mishanguc", "get_block_data"), new DataTagToolItem.BlockDataReceiver());
-    ClientPlayNetworking.registerGlobalReceiver(new Identifier("mishanguc", "get_entity_data"), new DataTagToolItem.EntityDataReceiver());
-    ClientPlayNetworking.registerGlobalReceiver(new Identifier("mishanguc", "rule_changed"), MishangucRules::handle);
+    ClientPlayNetworking.registerGlobalReceiver(new ResourceLocation("mishanguc", "get_block_data"), new DataTagToolItem.BlockDataReceiver());
+    ClientPlayNetworking.registerGlobalReceiver(new ResourceLocation("mishanguc", "get_entity_data"), new DataTagToolItem.EntityDataReceiver());
+    ClientPlayNetworking.registerGlobalReceiver(new ResourceLocation("mishanguc", "rule_changed"), MishangucRules::handle);
   }
 
-  private static void registerBlockColors() {
-    // 注册方块和颜色
+  @SubscribeEvent
+  public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+    event.registerBlockEntityRenderer(MishangucBlockEntities.HUNG_SIGN_BLOCK_ENTITY, HungSignBlockEntityRenderer::new);
+    event.registerBlockEntityRenderer(MishangucBlockEntities.COLORED_HUNG_SIGN_BLOCK_ENTITY, HungSignBlockEntityRenderer::new);
+    event.registerBlockEntityRenderer(MishangucBlockEntities.WALL_SIGN_BLOCK_ENTITY, WallSignBlockEntityRenderer::new);
+    event.registerBlockEntityRenderer(MishangucBlockEntities.COLORED_WALL_SIGN_BLOCK_ENTITY, WallSignBlockEntityRenderer::new);
+    event.registerBlockEntityRenderer(MishangucBlockEntities.FULL_WALL_SIGN_BLOCK_ENTITY, WallSignBlockEntityRenderer::new);
+    event.registerBlockEntityRenderer(MishangucBlockEntities.STANDING_SIGN_BLOCK_ENTITY, StandingSignBlockEntityRenderer::new);
+    event.registerBlockEntityRenderer(MishangucBlockEntities.COLORED_STANDING_SIGN_BLOCK_ENTITY, StandingSignBlockEntityRenderer::new);
+  }
+
+  @SubscribeEvent
+  public static void onBlockColors(RegisterColorHandlersEvent.Block event) {
     final Block[] coloredBlocks = MishangUtils.blocks().stream().filter(Predicates.instanceOf(ColoredBlock.class))
         .toArray(Block[]::new);
-    ColorProviderRegistry.BLOCK.register(
+    event.register(
         (state, world, pos, tintIndex) -> {
           if (world == null || pos == null) return -1;
           BlockEntity entity = world.getBlockEntity(pos);
           // 考虑到玩家掉落产生粒子时，坐标会向上偏离一格。
-          if (entity == null) entity = world.getBlockEntity(pos.down());
+          if (entity == null) entity = world.getBlockEntity(pos.below());
           if (entity instanceof ColoredBlockEntity coloredBlockEntity) {
             return coloredBlockEntity.getColor();
           } else {
@@ -150,7 +142,7 @@ public class MishangucClient implements ClientModInitializer {
             int accumulatedRed = 0;
             int accumulatedGreen = 0;
             int accumulatedBlue = 0;
-            for (BlockPos outPos : BlockPos.iterateOutwards(pos, 1, 1, 1)) {
+            for (BlockPos outPos : BlockPos.withinManhattan(pos, 1, 1, 1)) {
               if (outPos.equals(pos)) continue;
               if (world.getBlockEntity(outPos) instanceof ColoredBlockEntity coloredBlockEntity) {
                 final int color = coloredBlockEntity.getColor();
@@ -169,42 +161,51 @@ public class MishangucClient implements ClientModInitializer {
         },
         coloredBlocks
     );
-    ColorProviderRegistry.ITEM.register(
+  }
+
+  @SubscribeEvent
+  public static void onItemColors(RegisterColorHandlersEvent.Item event) {
+    final Block[] coloredBlocks = MishangUtils.blocks().stream().filter(Predicates.instanceOf(ColoredBlock.class))
+        .toArray(Block[]::new);
+    event.register(
         (stack, tintIndex) -> {
-          final NbtCompound nbt = stack.getSubNbt("BlockEntityTag");
-          if (nbt != null && nbt.contains("color", NbtElement.NUMBER_TYPE)) {
+          final CompoundTag nbt = stack.getTagElement("BlockEntityTag");
+          if (nbt != null && nbt.contains("color", Tag.TAG_INT)) {
             return 0xff000000 | nbt.getInt("color");
           }
-          return Color.HSBtoRGB(Util.getMeasuringTimeMs() / 4096f + (stack.getItem().hashCode() >> 16) / 64f, 0.5f, 0.95f);
+          return Color.HSBtoRGB(Util.getMillis() / 4096f + (stack.getItem().hashCode() >> 16) / 64f, 0.5f, 0.95f);
         },
         coloredBlocks
     );
   }
 
-  private static void registerBlockEntityRenderers() {
-    // 注册方块实体渲染器
-    BlockEntityRendererFactories.register(MishangucBlockEntities.HUNG_SIGN_BLOCK_ENTITY, HungSignBlockEntityRenderer::new);
-    BlockEntityRendererFactories.register(MishangucBlockEntities.COLORED_HUNG_SIGN_BLOCK_ENTITY, HungSignBlockEntityRenderer::new);
-    BlockEntityRendererFactories.register(MishangucBlockEntities.WALL_SIGN_BLOCK_ENTITY, WallSignBlockEntityRenderer::new);
-    BlockEntityRendererFactories.register(MishangucBlockEntities.COLORED_WALL_SIGN_BLOCK_ENTITY, WallSignBlockEntityRenderer::new);
-    BlockEntityRendererFactories.register(MishangucBlockEntities.FULL_WALL_SIGN_BLOCK_ENTITY, WallSignBlockEntityRenderer<FullWallSignBlockEntity>::new);
-    BlockEntityRendererFactories.register(MishangucBlockEntities.STANDING_SIGN_BLOCK_ENTITY, StandingSignBlockEntityRenderer::new);
-    BlockEntityRendererFactories.register(MishangucBlockEntities.COLORED_STANDING_SIGN_BLOCK_ENTITY, StandingSignBlockEntityRenderer::new);
+  private static void registerModelPredicateProviders() {
+    // 模型谓词提供器
+    ItemProperties.register(MishangucItems.EXPLOSION_TOOL,
+        Mishanguc.id("explosion_power"),
+        (stack, world, entity, seed) -> MishangucItems.EXPLOSION_TOOL.power(stack));
+
+    SignPresets.loadAll();
+
+    // TODO: ClientCommandRegistrationCallback needs Forge minecraft command conversion.
+    // ClientCommandRegistrationCallback.EVENT.register(SignPresetCommand.INSTANCE);
+
+    ItemProperties.register(MishangucItems.EXPLOSION_TOOL, Mishanguc.id("explosion_create_fire"), (stack, world, entity, seed) -> MishangucItems.EXPLOSION_TOOL.createFire(stack) ? 1 : 0);
+    ItemProperties.register(MishangucItems.FAST_BUILDING_TOOL, Mishanguc.id("fast_building_range"), (stack, world, entity, seed) -> MishangucItems.FAST_BUILDING_TOOL.getRange(stack) / 64f);
+    ItemProperties.register(MishangucItems.CARRYING_TOOL, Mishanguc.id("is_holding_block"), (stack, world, entity, seed) -> BooleanUtils.toInteger(CarryingToolItem.hasHoldingBlockState(stack)));
+    ItemProperties.register(MishangucItems.CARRYING_TOOL, Mishanguc.id("is_holding_entity"), (stack, world, entity, seed) -> BooleanUtils.toInteger(CarryingToolItem.hasHoldingEntity(stack)));
   }
 
-  private static void registerRenderEvents() {
-    // 注册方块外观描绘
-    WorldRenderEvents.BLOCK_OUTLINE.register(RendersBlockOutline.RENDERER);
-    WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register(RendersBeforeOutline.RENDERER);
-  }
-
+  @SuppressWarnings("deprecation")
   private static void registerBlockLayers() {
     // 设置相应的 BlockLayer
-    Validate.notEmpty(MishangucBlocks.translucentBlocks).forEach(block -> BlockRenderLayerMap.INSTANCE.putBlock(block, RenderLayer.getTranslucent()));
+    // Note: ItemBlockRenderTypes.setRenderLayer is deprecated in newer Forge versions
+    // but is the correct approach for 1.20.1.
+    Validate.notEmpty(MishangucBlocks.translucentBlocks).forEach(block -> ItemBlockRenderTypes.setRenderLayer(block, RenderType.translucent()));
     Validate.notEmpty(MishangucBlocks.cutoutBlocks).forEach(block -> {
-      BlockRenderLayerMap.INSTANCE.putBlock(block, RenderLayer.getCutout());
+      ItemBlockRenderTypes.setRenderLayer(block, RenderType.cutout());
       if (block instanceof AbstractRoadBlock roadBlock && roadBlock.getRoadSlab() != null) {
-        BlockRenderLayerMap.INSTANCE.putBlock(roadBlock.getRoadSlab(), RenderLayer.getCutout());
+        ItemBlockRenderTypes.setRenderLayer(roadBlock.getRoadSlab(), RenderType.cutout());
       }
     });
     MishangucBlocks.translucentBlocks = null;

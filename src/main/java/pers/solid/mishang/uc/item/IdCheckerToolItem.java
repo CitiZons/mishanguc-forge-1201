@@ -1,72 +1,79 @@
 package pers.solid.mishang.uc.item;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.api.EnvironmentInterface;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.text.Text;
+import net.minecraft.Util;
+
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.MultiBufferSource;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.*;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.World;
-import net.minecraft.world.biome.Biome;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.biome.Biome;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.mixin.WorldRendererInvoker;
 import pers.solid.mishang.uc.render.RendersBeforeOutline;
 import pers.solid.mishang.uc.util.TextBridge;
+import net.minecraft.ChatFormatting;
 
 import java.util.List;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.resources.ResourceLocation;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.InteractionResultHolder;
+import pers.solid.mishang.uc.data.stubs.WorldRenderContext;
 
-@EnvironmentInterface(value = EnvType.CLIENT, itf = RendersBeforeOutline.class)
 public class IdCheckerToolItem extends BlockToolItem implements InteractsWithEntity, RendersBeforeOutline {
-  public IdCheckerToolItem(Settings settings, @Nullable Boolean includesFluid) {
+  public IdCheckerToolItem(Properties settings, @Nullable Boolean includesFluid) {
     super(settings, includesFluid);
   }
 
-  public ActionResult getIdOf(PlayerEntity player, World world, BlockPos blockPos) {
+  public InteractionResult getIdOf(Player player, Level world, BlockPos blockPos) {
     BlockState blockState = world.getBlockState(blockPos);
     if (player != null) {
       final Block block = blockState.getBlock();
-      final Identifier identifier = Registries.BLOCK.getId(block);
-      final int rawId = Registries.BLOCK.getRawId(block);
-      player.sendMessage(
+      final ResourceLocation identifier = BuiltInRegistries.BLOCK.getKey(block);
+      final int rawId = BuiltInRegistries.BLOCK.getId(block);
+      player.sendSystemMessage(
           TextBridge.literal("")
               .append(TextBridge.translatable("debug.mishanguc.blockId.header", String.format(
                       "%s %s %s", blockPos.getX(), blockPos.getY(), blockPos.getZ()))
-                  .formatted(Formatting.YELLOW)));
+                  .withStyle(ChatFormatting.YELLOW)));
       broadcastId(player, block.getName(), identifier, rawId);
-      return ActionResult.SUCCESS;
+      return InteractionResult.SUCCESS;
     }
-    return ActionResult.SUCCESS;
+    return InteractionResult.SUCCESS;
   }
 
   /**
    * 发送一个方块、实体或其他事物的id。
    */
   private void broadcastId(
-      PlayerEntity player, Text name, @Nullable Identifier identifier, int rawId) {
-    player.sendMessage(
+      Player player, Component name, @Nullable ResourceLocation identifier, int rawId) {
+    player.sendSystemMessage(
         TextBridge.literal("  ").append(TextBridge.translatable("debug.mishanguc.id.name", name))
             .append("\n  ")
             .append(TextBridge.translatable("debug.mishanguc.id.id", identifier == null
@@ -77,39 +84,39 @@ public class IdCheckerToolItem extends BlockToolItem implements InteractsWithEnt
   }
 
   @Override
-  public ActionResult useOnBlock(
-      ItemStack stack, PlayerEntity player,
-      World world,
+  public InteractionResult useOnBlock(
+      ItemStack stack, Player player,
+      Level world,
       BlockHitResult blockHitResult,
-      Hand hand,
+      InteractionHand hand,
       boolean fluidIncluded) {
-    if (world.isClient) return getIdOf(player, world, blockHitResult.getBlockPos());
-    else return ActionResult.SUCCESS;
+    if (world.isClientSide) return getIdOf(player, world, blockHitResult.getBlockPos());
+    else return InteractionResult.SUCCESS;
   }
 
   @Override
-  public ActionResult beginAttackBlock(
-      ItemStack stack, PlayerEntity player, World world, Hand hand, BlockPos pos, Direction direction, boolean fluidIncluded) {
-    if (world.isClient) return getIdOf(player, world, pos);
-    else return ActionResult.SUCCESS;
+  public InteractionResult beginAttackBlock(
+      ItemStack stack, Player player, Level world, InteractionHand hand, BlockPos pos, Direction direction, boolean fluidIncluded) {
+    if (world.isClientSide) return getIdOf(player, world, pos);
+    else return InteractionResult.SUCCESS;
   }
 
   @Override
-  public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
-    if (world.isClient) {
-      final BlockPos blockPos = user.getBlockPos();
-      final Biome biome = user.getEntityWorld().getBiome(blockPos).value();
-      final Registry<Biome> biomes = world.getRegistryManager().get(RegistryKeys.BIOME);
-      final Identifier identifier = biomes.getId(biome);
-      final int rawId = biomes.getRawId(biome);
-      user.sendMessage(
+  public InteractionResultHolder<ItemStack> use(Level world, Player user, InteractionHand hand) {
+    if (world.isClientSide) {
+      final BlockPos blockPos = user.blockPosition();
+      final Biome biome = user.level().getBiome(blockPos).value();
+      final Registry<Biome> biomes = world.registryAccess().registryOrThrow(Registries.BIOME);
+      final ResourceLocation identifier = biomes.getKey(biome);
+      final int rawId = biomes.getId(biome);
+      user.sendSystemMessage(
           TextBridge.literal("").append(
               TextBridge.translatable("debug.mishanguc.biomeId.header", String.format(
                       "%s %s %s", blockPos.getX(), blockPos.getY(), blockPos.getZ()))
-                  .formatted(Formatting.YELLOW)));
+                  .withStyle(ChatFormatting.YELLOW)));
       broadcastId(
           user,
-          TextBridge.translatable(Util.createTranslationKey("biome", identifier)),
+          TextBridge.translatable(Util.makeDescriptionId("biome", identifier)),
           identifier,
           rawId);
     }
@@ -117,69 +124,69 @@ public class IdCheckerToolItem extends BlockToolItem implements InteractsWithEnt
   }
 
   @Override
-  public void appendTooltip(
-      ItemStack stack, @Nullable World world, List<Text> tooltip, TooltipContext context) {
-    super.appendTooltip(stack, world, tooltip, context);
+  public void appendHoverText(
+      ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag context) {
+    super.appendHoverText(stack, world, tooltip, context);
     tooltip.add(
         TextBridge.translatable("item.mishanguc.id_checker_tool.tooltip.1")
-            .formatted(Formatting.GRAY));
+            .withStyle(ChatFormatting.GRAY));
     final @Nullable Boolean includesFluid = includesFluid(stack);
     if (includesFluid == null) {
       tooltip.add(
           TextBridge.translatable("item.mishanguc.id_checker_tool.tooltip.2")
-              .formatted(Formatting.GRAY));
+              .withStyle(ChatFormatting.GRAY));
     } else if (includesFluid) {
       tooltip.add(
           TextBridge.translatable("item.mishanguc.id_checker_tool.tooltip.3")
-              .formatted(Formatting.GRAY));
+              .withStyle(ChatFormatting.GRAY));
     }
   }
 
   @Override
-  public @NotNull ActionResult attackEntityCallback(
-      PlayerEntity player,
-      World world,
-      Hand hand,
+  public @NotNull InteractionResult attackEntityCallback(
+      Player player,
+      Level world,
+      InteractionHand hand,
       Entity entity,
       @Nullable EntityHitResult hitResult) {
     return useEntityCallback(player, world, hand, entity, hitResult);
   }
 
   @Override
-  public @NotNull ActionResult useEntityCallback(
-      PlayerEntity player,
-      World world,
-      Hand hand,
+  public @NotNull InteractionResult useEntityCallback(
+      Player player,
+      Level world,
+      InteractionHand hand,
       Entity entity,
       @Nullable EntityHitResult hitResult) {
-    if (player.isSpectator()) return ActionResult.PASS;
-    if (!world.isClient) return ActionResult.SUCCESS;
-    final BlockPos blockPos = entity.getBlockPos();
-    player.sendMessage(
+    if (player.isSpectator()) return InteractionResult.PASS;
+    if (!world.isClientSide) return InteractionResult.SUCCESS;
+    final BlockPos blockPos = entity.blockPosition();
+    player.sendSystemMessage(
         TextBridge.literal("").append(
             TextBridge.translatable("debug.mishanguc.entityId.header", String.format(
                     "%s %s %s", blockPos.getX(), blockPos.getY(), blockPos.getZ()))
-                .formatted(Formatting.YELLOW)));
+                .withStyle(ChatFormatting.YELLOW)));
     final EntityType<?> type = entity.getType();
     broadcastId(
         player,
         entity.getName(),
-        Registries.ENTITY_TYPE.getId(type),
-        Registries.ENTITY_TYPE.getRawId(type));
-    return ActionResult.SUCCESS;
+        BuiltInRegistries.ENTITY_TYPE.getKey(type),
+        BuiltInRegistries.ENTITY_TYPE.getId(type));
+    return InteractionResult.SUCCESS;
   }
 
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   @Override
-  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, ClientPlayerEntity player, Hand hand) {
+  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, LocalPlayer player, InteractionHand hand) {
     if (hitResult instanceof EntityHitResult entityHitResult && !player.isSpectator()) {
       final Entity entity = entityHitResult.getEntity();
-      final MatrixStack matrices = context.matrixStack();
-      final VertexConsumerProvider consumers = context.consumers();
+      final PoseStack matrices = context.matrixStack();
+      final MultiBufferSource consumers = context.consumers();
       if (consumers == null) return;
-      final VertexConsumer vertexConsumer = consumers.getBuffer(RenderLayer.getLines());
-      final Vec3d cameraPos = context.camera().getPos();
-      WorldRendererInvoker.drawCuboidShapeOutline(matrices, vertexConsumer, VoxelShapes.cuboid(entity.getBoundingBox()), -cameraPos.x, -cameraPos.y, -cameraPos.z, 0f, 1f, 0f, 0.8f);
+      final VertexConsumer vertexConsumer = consumers.getBuffer(RenderType.lines());
+      final Vec3 cameraPos = context.camera().getPosition();
+      WorldRendererInvoker.drawCuboidShapeOutline(matrices, vertexConsumer, Shapes.create(entity.getBoundingBox()), -cameraPos.x, -cameraPos.y, -cameraPos.z, 0f, 1f, 0f, 0.8f);
     }
   }
 }

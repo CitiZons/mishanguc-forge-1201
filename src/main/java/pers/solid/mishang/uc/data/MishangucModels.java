@@ -1,8 +1,8 @@
 package pers.solid.mishang.uc.data;
 
-import net.minecraft.data.client.Model;
-import net.minecraft.data.client.TextureKey;
-import net.minecraft.util.Identifier;
+import pers.solid.mishang.uc.data.stubs.Model;
+import pers.solid.mishang.uc.data.stubs.TextureKey;
+import net.minecraft.resources.ResourceLocation;
 import pers.solid.mishang.uc.Mishanguc;
 import pers.solid.mishang.uc.block.GlassHandrailBlock;
 
@@ -82,7 +82,7 @@ public final class MishangucModels {
   public static final Model HUNG_SIGN_BAR_CENTRAL = createBlock("hung_sign_bar_central", "_central", TextureKey.TEXTURE);
   public static final Model HUNG_SIGN_BAR_EDGE = createBlock("hung_sign_bar_edge", "_edge", TextureKey.TEXTURE);
 
-  public static Identifier texture(String path) {
+  public static ResourceLocation texture(String path) {
     return Mishanguc.id("block/" + path);
   }
 

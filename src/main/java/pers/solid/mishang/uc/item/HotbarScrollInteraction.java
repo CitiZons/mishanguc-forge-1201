@@ -1,14 +1,14 @@
 package pers.solid.mishang.uc.item;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceLocation;
+import pers.solid.mishang.uc.data.stubs.ClientPlayNetworking;
+import pers.solid.mishang.uc.data.stubs.PacketByteBufs;
 
 /**
  * 实现此接口的物体，在滚动鼠标滚轮时，会暂时锁定快捷栏，并进行相应的特殊处理。
@@ -22,13 +22,13 @@ public interface HotbarScrollInteraction {
    * @param scrollAmount 滚动鼠标滚轮的数量。可能是正的，也有可能是负的。
    * @return 是否应该锁定快捷栏的选择。如果为 true，则当期选择的快捷栏槽位不会改变。
    */
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   default boolean shouldLockScroll(int selectedSlot, double scrollAmount) {
     if (Screen.hasShiftDown() || Screen.hasAltDown()) {
-      final PacketByteBuf buf = PacketByteBufs.create();
+      final FriendlyByteBuf buf = PacketByteBufs.create();
       buf.writeInt(selectedSlot);
       buf.writeDouble(scrollAmount);
-      ClientPlayNetworking.send(new Identifier("mishanguc", "item_scroll"), buf);
+      ClientPlayNetworking.send(new ResourceLocation("mishanguc", "item_scroll"), buf);
       return true;
     } else {
       return false;
@@ -42,5 +42,5 @@ public interface HotbarScrollInteraction {
    * @param scrollAmount 滚动的数量，由封包决定。
    * @param player       滚动了该物品的玩家。
    */
-  void onScroll(int selectedSlot, double scrollAmount, ServerPlayerEntity player, ItemStack stack);
+  void onScroll(int selectedSlot, double scrollAmount, ServerPlayer player, ItemStack stack);
 }

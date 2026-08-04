@@ -1,27 +1,30 @@
 package pers.solid.mishang.uc.block;
 
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
 import com.google.common.collect.ImmutableMap;
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.TransparentBlock;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.enums.WallMountLocation;
-import net.minecraft.data.client.BlockStateModelGenerator;
-import net.minecraft.data.client.ModelIds;
-import net.minecraft.data.client.ModelProvider;
-import net.minecraft.data.client.TextureMap;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.data.server.recipe.ShapedRecipeJsonBuilder;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.text.MutableText;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.level.block.HalfTransparentBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.properties.AttachFace;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+// TODO: Forge data gen - BlockStateModelGenerator
+import pers.solid.mishang.uc.data.stubs.ModelIds;
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.ShapedRecipeBuilder;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.BlockGetter;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -44,40 +47,40 @@ public class FullWallSignBlock extends WallSignBlock {
       MishangUtils.createHorizontalDirectionToShape(0, 15, 0, 16, 16, 16);
 
   @Unmodifiable
-  public static final Map<WallMountLocation, Map<Direction, VoxelShape>>
+  public static final Map<AttachFace, Map<Direction, VoxelShape>>
       SHAPE_PER_WALL_MOUNT_LOCATION =
       ImmutableMap.of(
-          WallMountLocation.CEILING,
+          AttachFace.CEILING,
           SHAPES_WHEN_CEILING,
-          WallMountLocation.FLOOR,
+          AttachFace.FLOOR,
           SHAPES_WHEN_FLOOR,
-          WallMountLocation.WALL,
+          AttachFace.WALL,
           SHAPES_WHEN_WALL);
 
-  public FullWallSignBlock(@Nullable Block baseBlock, Settings settings) {
+  public FullWallSignBlock(@Nullable Block baseBlock, Properties settings) {
     super(baseBlock, settings);
   }
 
   @ApiStatus.AvailableSince("0.1.7")
   public FullWallSignBlock(@NotNull Block baseBlock) {
-    this(baseBlock, FabricBlockSettings.copyOf(baseBlock));
+    this(baseBlock, BlockBehaviour.Properties.copy(baseBlock));
   }
 
   @Override
-  public MutableText getName() {
+  public MutableComponent getName() {
     return baseBlock == null
         ? super.getName()
         : TextBridge.translatable("block.mishanguc.full_wall_sign", baseBlock.getName());
   }
 
   @Override
-  public VoxelShape getOutlineShape(
-      BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-    return SHAPE_PER_WALL_MOUNT_LOCATION.get(state.get(FACE)).get(state.get(FACING));
+  public VoxelShape getShape(
+      BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+    return SHAPE_PER_WALL_MOUNT_LOCATION.get(state.getValue(FACE)).get(state.getValue(FACING));
   }
 
   @Override
-  public @Nullable BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+  public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
     return new FullWallSignBlockEntity(pos, state);
   }
 
@@ -89,15 +92,15 @@ public class FullWallSignBlock extends WallSignBlock {
   }
 
   @Override
-  public @Nullable CraftingRecipeJsonBuilder getCraftingRecipe() {
+  public @Nullable RecipeBuilder getCraftingRecipe() {
     if (baseBlock == null) return null;
-    return ShapedRecipeJsonBuilder.create(RecipeCategory.DECORATIONS, this, 4)
+    return ShapedRecipeBuilder.shaped(RecipeCategory.DECORATIONS, this, 4)
         .pattern("-#-")
         .pattern("###")
         .pattern("-#-")
-        .input('#', baseBlock).input('-', WallSignBlocks.INVISIBLE_WALL_SIGN)
-        .criterion("has_base_block", RecipeProvider.conditionsFromItem(baseBlock))
-        .criterion("has_sign", RecipeProvider.conditionsFromItem(WallSignBlocks.INVISIBLE_WALL_SIGN))
+        .define('#', baseBlock).define('-', WallSignBlocks.INVISIBLE_WALL_SIGN)
+        .unlockedBy("has_base_block", FabricRecipeProvider.has(baseBlock))
+        .unlockedBy("has_sign", FabricRecipeProvider.has(WallSignBlocks.INVISIBLE_WALL_SIGN))
         .group(getRecipeGroup());
   }
 
@@ -108,15 +111,15 @@ public class FullWallSignBlock extends WallSignBlock {
       return;
     }
     final TextureMap textures = TextureMap.texture(ModelHelper.getTextureOf(baseBlock));
-    final Identifier modelId = MishangucModels.FULL_WALL_SIGN.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation modelId = MishangucModels.FULL_WALL_SIGN.upload(this, textures, blockStateModelGenerator.modelCollector);
     blockStateModelGenerator.blockStateCollector.accept(createBlockStates(modelId));
   }
 
   @Override
-  public boolean isSideInvisible(BlockState state, BlockState stateFrom, Direction direction) {
-    if (direction.getAxis().isHorizontal() && state.getBlock() instanceof FullWallSignBlock && stateFrom.getBlock() instanceof FullWallSignBlock wallSignBlockFrom && state.get(FACING) == stateFrom.get(FACING) && direction.getAxis() != state.get(FACING).getAxis()) {
-      if (wallSignBlockFrom.baseBlock instanceof TransparentBlock) {
-        if (baseBlock instanceof TransparentBlock) {
+  public boolean skipRendering(BlockState state, BlockState stateFrom, Direction direction) {
+    if (direction.getAxis().isHorizontal() && state.getBlock() instanceof FullWallSignBlock && stateFrom.getBlock() instanceof FullWallSignBlock wallSignBlockFrom && state.getValue(FACING) == stateFrom.getValue(FACING) && direction.getAxis() != state.getValue(FACING).getAxis()) {
+      if (wallSignBlockFrom.baseBlock instanceof HalfTransparentBlock) {
+        if (baseBlock instanceof HalfTransparentBlock) {
           // 自身和相邻方块都为透明方块，则双方均为同一方块时隐藏。
           return baseBlock == wallSignBlockFrom.baseBlock;
         } else {

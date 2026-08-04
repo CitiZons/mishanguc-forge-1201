@@ -1,21 +1,23 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.data.server.recipe.SingleItemRecipeJsonBuilder;
-import net.minecraft.entity.ai.pathing.NavigationType;
-import net.minecraft.item.Item;
-import net.minecraft.recipe.Ingredient;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.SingleItemRecipeBuilder;
+import net.minecraft.world.level.pathfinder.PathComputationType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.BlockGetter;
 import org.jetbrains.annotations.NotNull;
 import pers.solid.mishang.uc.MishangUtils;
 
@@ -24,27 +26,27 @@ import java.util.Map;
 public class LightCoverBlock extends WallLightBlock {
   private static final Map<Direction, VoxelShape> SHAPE_PER_DIRECTION = MishangUtils.createDirectionToShape(0, 0, 0, 16, 1, 16);
 
-  public LightCoverBlock(String lightColor, Settings settings) {
+  public LightCoverBlock(String lightColor, Properties settings) {
     super(lightColor, settings, true);
-    setDefaultState(getDefaultState().with(FACING, Direction.SOUTH));
+    registerDefaultState(defaultBlockState().setValue(FACING, Direction.SOUTH));
   }
 
   @Override
-  public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-    return SHAPE_PER_DIRECTION.get(state.get(FACING));
+  public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+    return SHAPE_PER_DIRECTION.get(state.getValue(FACING));
   }
 
   @Override
-  public CraftingRecipeJsonBuilder getCraftingRecipe() {
-    final Identifier itemId = Registries.ITEM.getId(asItem());
+  public RecipeBuilder getCraftingRecipe() {
+    final ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(asItem());
     final @NotNull Item fullLight = getBaseLight(itemId.getNamespace(), lightColor, this);
-    return SingleItemRecipeJsonBuilder.createStonecutting(Ingredient.ofItems(fullLight), RecipeCategory.DECORATIONS, this, 8)
-        .criterion(RecipeProvider.hasItem(fullLight), RecipeProvider.conditionsFromItem(fullLight));
+    return SingleItemRecipeBuilder.stonecutting(Ingredient.of(fullLight), RecipeCategory.DECORATIONS, this, 8)
+        .unlockedBy(FabricRecipeProvider.getHasName(fullLight), FabricRecipeProvider.has(fullLight));
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public boolean canPathfindThrough(BlockState state, BlockView world, BlockPos pos, NavigationType type) {
-    return type == NavigationType.WATER && state.getFluidState().isIn(FluidTags.WATER);
+  public boolean isPathfindable(BlockState state, BlockGetter world, BlockPos pos, PathComputationType type) {
+    return type == PathComputationType.WATER && state.getFluidState().is(FluidTags.WATER);
   }
 }

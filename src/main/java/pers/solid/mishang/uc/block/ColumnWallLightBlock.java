@@ -1,15 +1,16 @@
 package pers.solid.mishang.uc.block;
 
 import com.google.common.collect.ImmutableMap;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.entity.ai.pathing.NavigationType;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.level.pathfinder.PathComputationType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.BlockGetter;
 
 import java.util.Map;
+import com.mojang.math.Axis;
 
 /**
  * 柱形灯块。
@@ -21,33 +22,33 @@ public class ColumnWallLightBlock extends WallLightBlock {
   public static final Map<Direction.Axis, VoxelShape> SHAPES5 = createColumnShapes(5);
   public static final Map<Direction.Axis, VoxelShape> SHAPES4 = createColumnShapes(4);
 
-  public ColumnWallLightBlock(String lightColor, Settings settings, int sizeType) {
+  public ColumnWallLightBlock(String lightColor, Properties settings, int sizeType) {
     super(lightColor, settings, sizeType == 2);
     this.sizeType = sizeType;
   }
 
   @Override
-  public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-    return (sizeType >= 2 ? SHAPES4 : sizeType == 1 ? SHAPES5 : SHAPES6).get(state.get(FACING).getAxis());
+  public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+    return (sizeType >= 2 ? SHAPES4 : sizeType == 1 ? SHAPES5 : SHAPES6).get(state.getValue(FACING).getAxis());
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public VoxelShape getCollisionShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-    return (sizeType >= 2 ? SHAPES5 : sizeType == 1 ? SHAPES6 : SHAPES7).get(state.get(FACING).getAxis());
+  public VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+    return (sizeType >= 2 ? SHAPES5 : sizeType == 1 ? SHAPES6 : SHAPES7).get(state.getValue(FACING).getAxis());
   }
 
   private static Map<Direction.Axis, VoxelShape> createColumnShapes(int min) {
     return ImmutableMap.of(
-        Direction.Axis.X, createCuboidShape(0, min, min, 16, 16 - min, 16 - min),
-        Direction.Axis.Y, createCuboidShape(min, 0, min, 16 - min, 16, 16 - min),
-        Direction.Axis.Z, createCuboidShape(min, min, 0, 16 - min, 16 - min, 16)
+        Direction.Axis.X, box(0, min, min, 16, 16 - min, 16 - min),
+        Direction.Axis.Y, box(min, 0, min, 16 - min, 16, 16 - min),
+        Direction.Axis.Z, box(min, min, 0, 16 - min, 16 - min, 16)
     );
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public boolean canPathfindThrough(BlockState state, BlockView world, BlockPos pos, NavigationType type) {
+  public boolean isPathfindable(BlockState state, BlockGetter world, BlockPos pos, PathComputationType type) {
     return false;
   }
 }

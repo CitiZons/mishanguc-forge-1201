@@ -1,23 +1,33 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.client.*;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeJsonProvider;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.state.StateManager;
-import net.minecraft.text.Text;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.item.TooltipFlag;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.TextureKey;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.BlockStateSupplier;
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.FinishedRecipe;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.*;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -35,7 +45,7 @@ public abstract class AbstractRoadBlock extends Block implements Road {
   protected final LineColor lineColor;
   protected final LineType lineType;
 
-  public AbstractRoadBlock(Settings settings, LineColor lineColor, LineType lineType) {
+  public AbstractRoadBlock(Properties settings, LineColor lineColor, LineType lineType) {
     super(settings);
     this.lineColor = lineColor;
     this.lineType = lineType;
@@ -47,34 +57,34 @@ public abstract class AbstractRoadBlock extends Block implements Road {
   }
 
   @Override
-  public void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-    super.appendProperties(builder);
+  public void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    super.createBlockStateDefinition(builder);
     appendRoadProperties(builder);
   }
 
   @Nullable
   @Override
-  public BlockState getPlacementState(ItemPlacementContext ctx) {
-    return withPlacementState(super.getPlacementState(ctx), ctx);
+  public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+    return withPlacementState(super.getStateForPlacement(ctx), ctx);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState mirror(BlockState state, BlockMirror mirror) {
+  public BlockState mirror(BlockState state, Mirror mirror) {
     return mirrorRoad(super.mirror(state, mirror), mirror);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState rotate(BlockState state, BlockRotation rotation) {
+  public BlockState rotate(BlockState state, Rotation rotation) {
     return rotateRoad(super.rotate(state, rotation), rotation);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-    ActionResult result = super.onUse(state, world, pos, player, hand, hit);
-    if (result == ActionResult.FAIL) {
+  public InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    InteractionResult result = super.use(state, world, pos, player, hand, hit);
+    if (result == InteractionResult.FAIL) {
       return result;
     }
     return onUseRoad(state, world, pos, player, hand, hit);
@@ -82,16 +92,16 @@ public abstract class AbstractRoadBlock extends Block implements Road {
 
   @SuppressWarnings("deprecation")
   @Override
-  public void neighborUpdate(
-      BlockState state, World world, BlockPos pos, Block sourceBlock, BlockPos sourcePos, boolean notify) {
-    super.neighborUpdate(state, world, pos, sourceBlock, sourcePos, notify);
+  public void neighborChanged(
+      BlockState state, Level world, BlockPos pos, Block sourceBlock, BlockPos sourcePos, boolean notify) {
+    super.neighborChanged(state, world, pos, sourceBlock, sourcePos, notify);
     neighborRoadUpdate(state, world, pos, sourceBlock, sourcePos, notify);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-    return withStateForNeighborUpdate(super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos), direction, neighborState, world, pos, neighborPos);
+  public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+    return withStateForNeighborUpdate(super.updateShape(state, direction, neighborState, world, pos, neighborPos), direction, neighborState, world, pos, neighborPos);
   }
 
   @Override
@@ -100,9 +110,9 @@ public abstract class AbstractRoadBlock extends Block implements Road {
   }
 
   @Override
-  public void appendTooltip(
-      ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
-    super.appendTooltip(stack, world, tooltip, options);
+  public void appendHoverText(
+      ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
+    super.appendHoverText(stack, world, tooltip, options);
     appendDescriptionTooltip(tooltip, options);
     appendRoadTooltip(stack, world, tooltip, options);
   }
@@ -114,11 +124,11 @@ public abstract class AbstractRoadBlock extends Block implements Road {
   }
 
   @Override
-  public void writeRecipes(Consumer<RecipeJsonProvider> exporter) {
+  public void writeRecipes(Consumer<FinishedRecipe> exporter) {
     Road.super.writeRecipes(exporter);
-    final CraftingRecipeJsonBuilder paintingRecipe = getPaintingRecipe(RoadBlocks.ROAD_BLOCK, this);
+    final RecipeBuilder paintingRecipe = getPaintingRecipe(RoadBlocks.ROAD_BLOCK, this);
     if (paintingRecipe != null) {
-      paintingRecipe.group(getRecipeGroup()).offerTo(exporter, getPaintingRecipeId());
+      paintingRecipe.group(getRecipeGroup()).save(exporter, getPaintingRecipeId());
     }
   }
 
@@ -139,12 +149,12 @@ public abstract class AbstractRoadBlock extends Block implements Road {
   }
 
   @Override
-  public Identifier uploadModel(String suffix, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys) {
+  public ResourceLocation uploadModel(String suffix, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys) {
     return MishangucModels.createBlock(getModelName(suffix), textureKeys).upload(this, textureMap, blockStateModelGenerator.modelCollector);
   }
 
   @Override
-  public Identifier uploadModel(String suffix, String variant, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys) {
+  public ResourceLocation uploadModel(String suffix, String variant, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys) {
     return MishangucModels.createBlock(getModelName(suffix), variant, textureKeys).upload(this, textureMap, blockStateModelGenerator.modelCollector);
   }
 

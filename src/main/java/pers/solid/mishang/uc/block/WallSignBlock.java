@@ -1,40 +1,47 @@
 package pers.solid.mishang.uc.block;
 
+import net.minecraft.client.Minecraft;
+
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
 import com.google.common.collect.ImmutableMap;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.enums.WallMountLocation;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.client.*;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.data.server.recipe.ShapedRecipeJsonBuilder;
-import net.minecraft.entity.ai.pathing.NavigationType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.*;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.*;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.properties.AttachFace;
+import net.minecraft.world.item.TooltipFlag;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.VariantSettings;
+import pers.solid.mishang.uc.data.stubs.Model;
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.ShapedRecipeBuilder;
+import net.minecraft.world.level.pathfinder.PathComputationType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.item.*;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.*;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -45,11 +52,16 @@ import pers.solid.mishang.uc.blockentity.WallSignBlockEntity;
 import pers.solid.mishang.uc.blocks.WallSignBlocks;
 import pers.solid.mishang.uc.data.MishangucModels;
 import pers.solid.mishang.uc.data.ModelHelper;
+import pers.solid.mishang.uc.data.stubs.PacketByteBufs;
+import pers.solid.mishang.uc.data.stubs.ServerPlayNetworking;
 import pers.solid.mishang.uc.render.WallSignBlockEntityRenderer;
 import pers.solid.mishang.uc.util.TextBridge;
 
 import java.util.List;
 import java.util.Map;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.item.context.BlockPlaceContext;
 
 /**
  * 与 Minecraft 原版的 {@link net.minecraft.block.WallSignBlock} 不同，这里的 {@code WallSignBlock}
@@ -59,8 +71,8 @@ import java.util.Map;
  * @see WallSignBlockEntity
  * @see WallSignBlockEntityRenderer
  */
-public class WallSignBlock extends WallMountedBlock implements Waterloggable, BlockEntityProvider, MishangucBlock {
-  public static final BooleanProperty WATERLOGGED = Properties.WATERLOGGED;
+public class WallSignBlock extends FaceAttachedHorizontalDirectionalBlock implements SimpleWaterloggedBlock, EntityBlock, MishangucBlock {
+  public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
   public static final Map<Direction, VoxelShape> SHAPES_WHEN_WALL =
       MishangUtils.createHorizontalDirectionToShape(0, 4, 0, 16, 12, 1);
   public static final Map<Direction, VoxelShape> SHAPES_WHEN_FLOOR =
@@ -68,97 +80,97 @@ public class WallSignBlock extends WallMountedBlock implements Waterloggable, Bl
   public static final Map<Direction, VoxelShape> SHAPES_WHEN_CEILING =
       MishangUtils.createHorizontalDirectionToShape(0, 15, 4, 16, 16, 12);
   @Unmodifiable
-  public static final Map<WallMountLocation, Map<Direction, VoxelShape>>
+  public static final Map<AttachFace, Map<Direction, VoxelShape>>
       SHAPE_PER_WALL_MOUNT_LOCATION =
       ImmutableMap.of(
-          WallMountLocation.CEILING,
+          AttachFace.CEILING,
           SHAPES_WHEN_CEILING,
-          WallMountLocation.FLOOR,
+          AttachFace.FLOOR,
           SHAPES_WHEN_FLOOR,
-          WallMountLocation.WALL,
+          AttachFace.WALL,
           SHAPES_WHEN_WALL);
   public final Block baseBlock;
   /**
    * 告示牌自身的纹理。默认为 {@code null}，可在后期修改。若为 {@code null}，则直接根据其基础方块 {@link #baseBlock} 推断纹理。
    */
   @ApiStatus.AvailableSince("0.1.7")
-  public @Nullable Identifier texture;
+  public @Nullable ResourceLocation texture;
 
-  public WallSignBlock(@Nullable Block baseBlock, Settings settings) {
+  public WallSignBlock(@Nullable Block baseBlock, Properties settings) {
     super(settings);
     this.baseBlock = baseBlock;
-    setDefaultState(getDefaultState()
-        .with(FACING, Direction.SOUTH)
-        .with(FACE, WallMountLocation.WALL)
-        .with(WATERLOGGED, false));
+    registerDefaultState(defaultBlockState()
+        .setValue(FACING, Direction.SOUTH)
+        .setValue(FACE, AttachFace.WALL)
+        .setValue(WATERLOGGED, false));
   }
 
   @ApiStatus.AvailableSince("0.1.7")
   public WallSignBlock(@NotNull Block baseBlock) {
-    this(baseBlock, FabricBlockSettings.copyOf(baseBlock));
+    this(baseBlock, BlockBehaviour.Properties.copy(baseBlock).mapColor(baseBlock.defaultMapColor()));
   }
 
   @Override
-  protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-    super.appendProperties(builder);
+  protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    super.createBlockStateDefinition(builder);
     builder.add(FACE, FACING, WATERLOGGED);
   }
 
   @Nullable
   @Override
-  public BlockState getPlacementState(ItemPlacementContext ctx) {
-    final BlockState placementState = super.getPlacementState(ctx);
+  public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+    final BlockState placementState = super.getStateForPlacement(ctx);
     return placementState != null
-        ? placementState.with(
-        WATERLOGGED, ctx.getWorld().getFluidState(ctx.getBlockPos()).getFluid() == Fluids.WATER)
+        ? placementState.setValue(
+        WATERLOGGED, ctx.getLevel().getFluidState(ctx.getClickedPos()).getType() == Fluids.WATER)
         : null;
   }
 
   @Override
-  public boolean canPlaceAt(BlockState state, WorldView world, BlockPos pos) {
+  public boolean canSurvive(BlockState state, LevelReader world, BlockPos pos) {
     return true;
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public VoxelShape getOutlineShape(
-      BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-    return SHAPE_PER_WALL_MOUNT_LOCATION.get(state.get(FACE)).get(state.get(FACING));
+  public VoxelShape getShape(
+      BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+    return SHAPE_PER_WALL_MOUNT_LOCATION.get(state.getValue(FACE)).get(state.getValue(FACING));
   }
 
   @SuppressWarnings("deprecation")
   @Override
   public FluidState getFluidState(BlockState state) {
-    return state.get(WATERLOGGED) ? Fluids.WATER.getStill(false) : super.getFluidState(state);
+    return state.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(state);
   }
 
   @Override
-  public BlockState getStateForNeighborUpdate(
+  public BlockState updateShape(
       BlockState state,
       Direction direction,
       BlockState neighborState,
-      WorldAccess world,
+      LevelAccessor world,
       BlockPos pos,
       BlockPos neighborPos) {
-    super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos);
-    if (state.get(WATERLOGGED)) {
-      world.scheduleFluidTick(pos, Fluids.WATER, Fluids.WATER.getTickRate(world));
+    super.updateShape(state, direction, neighborState, world, pos, neighborPos);
+    if (state.getValue(WATERLOGGED)) {
+      world.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(world));
     }
     return state;
   }
 
   @Override
-  public MutableText getName() {
+  public MutableComponent getName() {
     return baseBlock == null
         ? super.getName()
         : TextBridge.translatable("block.mishanguc.wall_sign", baseBlock.getName());
   }
 
   @Override
-  public void appendTooltip(ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
-    super.appendTooltip(stack, world, tooltip, options);
-    tooltip.add(TextBridge.translatable("block.mishanguc.wall_sign.tooltip.1").formatted(Formatting.GRAY));
-    tooltip.add(TextBridge.translatable("block.mishanguc.wall_sign.tooltip.2").formatted(Formatting.GRAY));
+  public void appendHoverText(ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
+    super.appendHoverText(stack, world, tooltip, options);
+    tooltip.add(TextBridge.translatable("block.mishanguc.wall_sign.tooltip.1").withStyle(ChatFormatting.GRAY));
+    tooltip.add(TextBridge.translatable("block.mishanguc.wall_sign.tooltip.2").withStyle(ChatFormatting.GRAY));
   }
 
   /**
@@ -166,105 +178,105 @@ public class WallSignBlock extends WallMountedBlock implements Waterloggable, Bl
    */
   @SuppressWarnings("deprecation")
   @Override
-  public ActionResult onUse(
+  public InteractionResult use(
       BlockState state,
-      World world,
+      Level world,
       BlockPos pos,
-      PlayerEntity player,
-      Hand hand,
+      Player player,
+      InteractionHand hand,
       BlockHitResult hit) {
-    final ActionResult actionResult = super.onUse(state, world, pos, player, hand, hit);
-    if (actionResult != ActionResult.PASS) return actionResult;
+    final InteractionResult actionResult = super.use(state, world, pos, player, hand, hit);
+    if (actionResult != InteractionResult.PASS) return actionResult;
     // 在服务端触发打开告示牌编辑界面。Open the edit interface, triggered in the server side.
     final BlockEntity blockEntity = world.getBlockEntity(pos);
     if (!(blockEntity instanceof final WallSignBlockEntity entity)) {
-      return ActionResult.PASS;
-    } else if (!player.getAbilities().allowModifyWorld) {
+      return InteractionResult.PASS;
+    } else if (!player.getAbilities().mayBuild) {
       // 冒险模式玩家无权编辑。Adventure players have no permission to edit.
-      return ActionResult.FAIL;
-    } else if (world.isClient) {
-      return ActionResult.SUCCESS;
+      return InteractionResult.FAIL;
+    } else if (world.isClientSide) {
+      return InteractionResult.SUCCESS;
     } else {
-      final ItemStack stackInHand = player.getStackInHand(hand);
+      final ItemStack stackInHand = player.getItemInHand(hand);
       if (stackInHand.getItem() instanceof HoneycombItem) {
         // 处理告示牌的涂蜡。
         if (!entity.waxed) {
           entity.waxed = true;
-          player.sendMessage(BlockEntityWithText.MESSAGE_WAX_ON, true);
-          world.syncWorldEvent(null, WorldEvents.BLOCK_WAXED, entity.getPos(), 0);
+          player.displayClientMessage(BlockEntityWithText.MESSAGE_WAX_ON, true);
+          world.levelEvent(null, 3003, entity.getBlockPos(), 0);
           entity.markDirtyAndUpdate();
-          if (!player.isCreative()) stackInHand.decrement(1);
-          return ActionResult.SUCCESS;
+          if (!player.isCreative()) stackInHand.shrink(1);
+          return InteractionResult.SUCCESS;
         } else if (player.isCreative()) {
           entity.waxed = false;
-          player.sendMessage(BlockEntityWithText.MESSAGE_WAX_OFF, true);
-          world.syncWorldEvent(null, WorldEvents.WAX_REMOVED, entity.getPos(), 0);
+          player.displayClientMessage(BlockEntityWithText.MESSAGE_WAX_OFF, true);
+          world.levelEvent(null, 3004, entity.getBlockPos(), 0);
           entity.markDirtyAndUpdate();
-          return ActionResult.SUCCESS;
+          return InteractionResult.SUCCESS;
         }
       }
       if (entity.waxed) {
         // 涂蜡的告示牌不应该进行操作。
-        world.playSound(null, entity.getPos(), SoundEvents.BLOCK_SIGN_WAXED_INTERACT_FAIL, SoundCategory.BLOCKS);
-        return ActionResult.PASS;
-      } else if (stackInHand.isOf(Items.MAGMA_CREAM)) {
+        world.playSound(null, entity.getBlockPos(), SoundEvents.WAXED_SIGN_INTERACT_FAIL, SoundSource.BLOCKS);
+        return InteractionResult.PASS;
+      } else if (stackInHand.is(Items.MAGMA_CREAM)) {
         MishangUtils.rearrange(entity.textContexts);
         entity.markDirtyAndUpdate();
-        if (!player.isCreative()) stackInHand.decrement(1);
-        return ActionResult.SUCCESS;
+        if (!player.isCreative()) stackInHand.shrink(1);
+        return InteractionResult.SUCCESS;
       } else if (stackInHand.getItem() instanceof GlowInkSacItem) {
         if (!entity.glowing) {
           entity.glowing = true;
-          player.sendMessage(BlockEntityWithText.MESSAGE_GLOW_ON, true);
-          world.playSound(null, entity.getPos(), SoundEvents.ITEM_GLOW_INK_SAC_USE, SoundCategory.BLOCKS, 1.0F, 1.0F);
+          player.displayClientMessage(BlockEntityWithText.MESSAGE_GLOW_ON, true);
+          world.playSound(null, entity.getBlockPos(), SoundEvents.GLOW_INK_SAC_USE, SoundSource.BLOCKS, 1.0F, 1.0F);
           entity.markDirtyAndUpdate();
-          if (!player.isCreative()) stackInHand.decrement(1);
-          return ActionResult.SUCCESS;
+          if (!player.isCreative()) stackInHand.shrink(1);
+          return InteractionResult.SUCCESS;
         }
       } else if (stackInHand.getItem() instanceof InkSacItem) {
         if (entity.glowing) {
           entity.glowing = false;
-          player.sendMessage(BlockEntityWithText.MESSAGE_GLOW_OFF, true);
-          world.playSound(null, entity.getPos(), SoundEvents.ITEM_INK_SAC_USE, SoundCategory.BLOCKS, 1.0F, 1.0F);
+          player.displayClientMessage(BlockEntityWithText.MESSAGE_GLOW_OFF, true);
+          world.playSound(null, entity.getBlockPos(), SoundEvents.INK_SAC_USE, SoundSource.BLOCKS, 1.0F, 1.0F);
           entity.markDirtyAndUpdate();
-          if (!player.isCreative()) stackInHand.decrement(1);
-          return ActionResult.SUCCESS;
+          if (!player.isCreative()) stackInHand.shrink(1);
+          return InteractionResult.SUCCESS;
         }
       }
     }
 
     entity.checkEditorValidity();
-    PlayerEntity editor = entity.getEditor();
+    Player editor = entity.getEditor();
     if (editor != null && editor != player) {
       // 这种情况下，告示牌被占用，玩家无权编辑。
       // In this case, the sign is occupied, and the players have no editing
       // permission.
-      player.sendMessage(TextBridge.translatable("message.mishanguc.no_editing_permission.occupied", editor.getName()), false);
-      return ActionResult.FAIL;
+      player.displayClientMessage(TextBridge.translatable("message.mishanguc.no_editing_permission.occupied", editor.getName()), false);
+      return InteractionResult.FAIL;
     }
     // 此时告示牌已被编辑。
     entity.setEditor(player);
     ServerPlayNetworking.send(
-        ((ServerPlayerEntity) player),
-        new Identifier("mishanguc", "edit_sign"),
-        PacketByteBufs.create().writeBlockPos(pos).writeEnumConstant(hit.getSide()));
-    return ActionResult.SUCCESS;
+        ((ServerPlayer) player),
+        new ResourceLocation("mishanguc", "edit_sign"),
+        PacketByteBufs.create().writeBlockPos(pos).writeEnum(hit.getDirection()));
+    return InteractionResult.SUCCESS;
   }
 
   @Nullable
   @Override
-  public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+  public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
     return new WallSignBlockEntity(pos, state);
   }
 
   @Override
   public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
     final TextureMap textures = TextureMap.texture(getBaseTexture());
-    final Identifier modelId = MishangucModels.WALL_SIGN.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation modelId = MishangucModels.WALL_SIGN.upload(this, textures, blockStateModelGenerator.modelCollector);
     blockStateModelGenerator.blockStateCollector.accept(createBlockStates(modelId));
   }
 
-  public VariantsBlockStateSupplier createBlockStates(Identifier modelId) {
+  public VariantsBlockStateSupplier createBlockStates(ResourceLocation modelId) {
     return BlockStateModelGenerator.createSingletonBlockState(this, modelId).coordinate(BlockStateVariantMap.create(FACE, FACING).register((wallMountLocation, direction) -> {
       final int x = switch (wallMountLocation) {
         case WALL -> 0;
@@ -278,7 +290,7 @@ public class WallSignBlock extends WallMountedBlock implements Waterloggable, Bl
     }));
   }
 
-  public Identifier getBaseTexture() {
+  public ResourceLocation getBaseTexture() {
     if (texture != null) return texture;
     return ModelHelper.getTextureOf(baseBlock == null ? this : baseBlock);
   }
@@ -297,24 +309,24 @@ public class WallSignBlock extends WallMountedBlock implements Waterloggable, Bl
   }
 
   @Override
-  public @Nullable CraftingRecipeJsonBuilder getCraftingRecipe() {
+  public @Nullable RecipeBuilder getCraftingRecipe() {
     if (baseBlock == null) return null;
-    return ShapedRecipeJsonBuilder.create(RecipeCategory.DECORATIONS, this, 6)
+    return ShapedRecipeBuilder.shaped(RecipeCategory.DECORATIONS, this, 6)
         .pattern("---")
         .pattern("###")
         .pattern("---")
-        .input('#', baseBlock).input('-', WallSignBlocks.INVISIBLE_WALL_SIGN)
-        .criterion("has_base_block", RecipeProvider.conditionsFromItem(baseBlock))
-        .criterion("has_sign", RecipeProvider.conditionsFromItem(WallSignBlocks.INVISIBLE_WALL_SIGN))
+        .define('#', baseBlock).define('-', WallSignBlocks.INVISIBLE_WALL_SIGN)
+        .unlockedBy("has_base_block", FabricRecipeProvider.has(baseBlock))
+        .unlockedBy("has_sign", FabricRecipeProvider.has(WallSignBlocks.INVISIBLE_WALL_SIGN))
         .group(getRecipeGroup());
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public boolean isSideInvisible(BlockState state, BlockState stateFrom, Direction direction) {
-    if (direction.getAxis().isHorizontal() && state.getBlock() instanceof WallSignBlock && stateFrom.getBlock() instanceof WallSignBlock wallSignBlockFrom && state.get(FACING) == stateFrom.get(FACING) && direction.getAxis() != state.get(FACING).getAxis()) {
-      if (wallSignBlockFrom.baseBlock instanceof TransparentBlock) {
-        if (baseBlock instanceof TransparentBlock) {
+  public boolean skipRendering(BlockState state, BlockState stateFrom, Direction direction) {
+    if (direction.getAxis().isHorizontal() && state.getBlock() instanceof WallSignBlock && stateFrom.getBlock() instanceof WallSignBlock wallSignBlockFrom && state.getValue(FACING) == stateFrom.getValue(FACING) && direction.getAxis() != state.getValue(FACING).getAxis()) {
+      if (wallSignBlockFrom.baseBlock instanceof HalfTransparentBlock) {
+        if (baseBlock instanceof HalfTransparentBlock) {
           // 自身和相邻方块都为透明方块，则双方均为同一方块时隐藏。
           return baseBlock == wallSignBlockFrom.baseBlock;
         } else {
@@ -323,7 +335,7 @@ public class WallSignBlock extends WallMountedBlock implements Waterloggable, Bl
       }
       return true;
     } else {
-      return super.isSideInvisible(state, stateFrom, direction);
+      return super.skipRendering(state, stateFrom, direction);
     }
   }
 
@@ -334,7 +346,7 @@ public class WallSignBlock extends WallMountedBlock implements Waterloggable, Bl
 
   @SuppressWarnings("deprecation")
   @Override
-  public boolean canPathfindThrough(BlockState state, BlockView world, BlockPos pos, NavigationType type) {
+  public boolean isPathfindable(BlockState state, BlockGetter world, BlockPos pos, PathComputationType type) {
     return false;
   }
 }

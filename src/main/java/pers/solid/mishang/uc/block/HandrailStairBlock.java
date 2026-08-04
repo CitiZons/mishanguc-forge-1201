@@ -2,32 +2,35 @@ package pers.solid.mishang.uc.block;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.minecraft.block.*;
-import net.minecraft.block.enums.BlockHalf;
-import net.minecraft.data.client.*;
-import net.minecraft.entity.ai.pathing.NavigationType;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.text.MutableText;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.StringIdentifiable;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.properties.Half;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.BlockStateSupplier;
+import pers.solid.mishang.uc.data.stubs.VariantSettings;
+import pers.solid.mishang.uc.data.stubs.Model;
+import net.minecraft.world.level.pathfinder.PathComputationType;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.StringRepresentable;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
@@ -38,16 +41,18 @@ import pers.solid.mishang.uc.util.TextBridge;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
 
-public abstract class HandrailStairBlock<T extends HandrailBlock> extends HorizontalFacingBlock implements Waterloggable, MishangucBlock, Handrails {
-  public static final BooleanProperty WATERLOGGED = Properties.WATERLOGGED;
+public abstract class HandrailStairBlock<T extends HandrailBlock> extends HorizontalDirectionalBlock implements SimpleWaterloggedBlock, MishangucBlock, Handrails {
+  public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
   public static final EnumProperty<Position> POSITION = MishangucProperties.HANDRAIL_STAIR_POSITION;
   public static final EnumProperty<Shape> SHAPE = MishangucProperties.HANDRAIL_STAIR_SHAPE;
   public final @NotNull T baseHandrail;
 
   @Unmodifiable
   public static final Map<Direction, Map<Position, Map<Shape, VoxelShape>>> SHAPES = Maps.toMap(
-      Direction.Type.HORIZONTAL.iterator(),
+      Direction.Plane.HORIZONTAL.iterator(),
       facing -> Maps.toMap(
           Iterators.forArray(Position.values()),
           position ->
@@ -58,63 +63,63 @@ public abstract class HandrailStairBlock<T extends HandrailBlock> extends Horizo
       )
   );
 
-  protected HandrailStairBlock(@NotNull T baseHandrail, Settings settings) {
+  protected HandrailStairBlock(@NotNull T baseHandrail, Properties settings) {
     super(settings);
     this.baseHandrail = baseHandrail;
-    setDefaultState(getDefaultState()
-        .with(WATERLOGGED, false)
-        .with(POSITION, Position.CENTER)
-        .with(FACING, Direction.SOUTH)
-        .with(SHAPE, Shape.MIDDLE));
+    registerDefaultState(defaultBlockState()
+        .setValue(WATERLOGGED, false)
+        .setValue(POSITION, Position.CENTER)
+        .setValue(FACING, Direction.SOUTH)
+        .setValue(SHAPE, Shape.MIDDLE));
   }
 
   public HandrailStairBlock(@NotNull T baseHandrail) {
-    this(baseHandrail, FabricBlockSettings.copyOf(baseHandrail));
+    this(baseHandrail, BlockBehaviour.Properties.copy(baseHandrail));
   }
 
   @Override
-  protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-    super.appendProperties(builder);
+  protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    super.createBlockStateDefinition(builder);
     builder.add(WATERLOGGED, POSITION, FACING, SHAPE);
   }
 
   /**
    * @param modelId 不含形状和位置信息的模型 ID
    */
-  public @NotNull BlockStateSupplier createBlockStates(Identifier modelId) {
+  public @NotNull BlockStateSupplier createBlockStates(ResourceLocation modelId) {
     return VariantsBlockStateSupplier.create(this)
         .coordinate(BlockStateVariantMap.create(FACING, POSITION, SHAPE)
             .register((facing, position, shape) -> BlockStateVariant.create()
-                .put(VariantSettings.MODEL, modelId.withSuffixedPath("_" + shape.asString() + "_" + position.asString()))
+                .put(VariantSettings.MODEL, modelId.withSuffix("_" + shape.getSerializedName() + "_" + position.getSerializedName()))
                 .put(MishangUtils.DIRECTION_Y_VARIANT, facing.getOpposite())
                 .put(VariantSettings.UVLOCK, true)));
   }
 
   @Nullable
   @Override
-  public BlockState getPlacementState(ItemPlacementContext ctx) {
-    final BlockState placementState = super.getPlacementState(ctx);
+  public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+    final BlockState placementState = super.getStateForPlacement(ctx);
     if (placementState == null) return null;
 
-    final BlockPos blockPos = ctx.getBlockPos();
-    final World world = ctx.getWorld();
+    final BlockPos blockPos = ctx.getClickedPos();
+    final Level world = ctx.getLevel();
     final Shape shape;
-    final BlockState stateBelow = world.getBlockState(blockPos.down());
+    final BlockState stateBelow = world.getBlockState(blockPos.below());
     final Direction facing;
-    if (stateBelow.getBlock() instanceof StairsBlock && stateBelow.contains(StairsBlock.FACING) && stateBelow.contains(StairsBlock.HALF) && stateBelow.get(StairsBlock.HALF) == BlockHalf.BOTTOM) {
-      facing = stateBelow.get(StairsBlock.FACING);
-      final BlockPos forwardPos = blockPos.offset(facing);
+    if (stateBelow.getBlock() instanceof StairBlock && stateBelow.hasProperty(StairBlock.FACING) && stateBelow.hasProperty(StairBlock.HALF) && stateBelow.getValue(StairBlock.HALF) == Half.BOTTOM) {
+      facing = stateBelow.getValue(StairBlock.FACING);
+      final BlockPos forwardPos = blockPos.relative(facing);
       final BlockState forwardState = world.getBlockState(forwardPos);
-      if (forwardState.getBlock() instanceof StairsBlock && forwardState.contains(StairsBlock.HALF) && forwardState.get(StairsBlock.HALF) == BlockHalf.BOTTOM && forwardState.contains(StairsBlock.FACING) && forwardState.get(StairsBlock.FACING) == facing) {
+      if (forwardState.getBlock() instanceof StairBlock && forwardState.hasProperty(StairBlock.HALF) && forwardState.getValue(StairBlock.HALF) == Half.BOTTOM && forwardState.hasProperty(StairBlock.FACING) && forwardState.getValue(StairBlock.FACING) == facing) {
         shape = Shape.MIDDLE;
       } else {
         shape = Shape.TOP;
       }
     } else {
-      facing = ctx.getHorizontalPlayerFacing();
+      facing = ctx.getHorizontalDirection();
       shape = Shape.BOTTOM;
     }
-    final Vec3d hitPos = ctx.getHitPos();
+    final Vec3 hitPos = ctx.getClickLocation();
     final double diff = switch (facing) {
       case SOUTH -> hitPos.x - blockPos.getX();
       case NORTH -> blockPos.getX() + 1 - hitPos.x;
@@ -122,7 +127,7 @@ public abstract class HandrailStairBlock<T extends HandrailBlock> extends Horizo
       case WEST -> hitPos.z - blockPos.getZ();
       default -> 0.5;
     };
-    return placementState.with(WATERLOGGED, world.getFluidState(blockPos).getFluid() == Fluids.WATER).with(FACING, facing).with(POSITION, diff < 0.3 ? Position.RIGHT : diff < 0.7 ? Position.CENTER : Position.LEFT).with(SHAPE, shape);
+    return placementState.setValue(WATERLOGGED, world.getFluidState(blockPos).getType() == Fluids.WATER).setValue(FACING, facing).setValue(POSITION, diff < 0.3 ? Position.RIGHT : diff < 0.7 ? Position.CENTER : Position.LEFT).setValue(SHAPE, shape);
   }
 
   /**
@@ -135,8 +140,8 @@ public abstract class HandrailStairBlock<T extends HandrailBlock> extends Horizo
   @Nullable
   protected static Direction equivalentFacing(Direction facing, Position position) {
     return switch (position) {
-      case LEFT -> facing.rotateYClockwise();
-      case RIGHT -> facing.rotateYCounterclockwise();
+      case LEFT -> facing.getClockWise();
+      case RIGHT -> facing.getCounterClockWise();
       case CENTER -> null;
     };
   }
@@ -149,15 +154,15 @@ public abstract class HandrailStairBlock<T extends HandrailBlock> extends Horizo
    */
   @Nullable
   public static Direction equivalentFacing(BlockState state) {
-    return equivalentFacing(state.get(FACING), state.get(POSITION));
+    return equivalentFacing(state.getValue(FACING), state.getValue(POSITION));
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-    final Direction facing = state.get(FACING);
-    final Position type = state.get(POSITION);
-    final Shape shape = state.get(SHAPE);
+  public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+    final Direction facing = state.getValue(FACING);
+    final Position type = state.getValue(POSITION);
+    final Shape shape = state.getValue(SHAPE);
     return SHAPES.get(facing).get(type).get(shape);
   }
 
@@ -165,37 +170,37 @@ public abstract class HandrailStairBlock<T extends HandrailBlock> extends Horizo
     List<VoxelShape> shapes = new ArrayList<>();
 
     // 沿着楼梯前进上升的方向的单位向量。
-    final Vec3d forwardUnit = Vec3d.of(facing.getVector());
+    final Vec3 forwardUnit = Vec3.atLowerCornerOf(facing.getNormal());
     // 沿着楼梯前进方向看，向右的单位向量。
-    final Vec3d rightUnit = Vec3d.of(facing.rotateYClockwise().getVector());
-    new Vec3d(0.5d, 0, 0.5d).add(forwardUnit.multiply(0.5));
-    Vec3d basePoint = new Vec3d(0.5d, 0, 0.5d).add(forwardUnit.multiply(0.5));
+    final Vec3 rightUnit = Vec3.atLowerCornerOf(facing.getClockWise().getNormal());
+    new Vec3(0.5d, 0, 0.5d).add(forwardUnit.scale(0.5));
+    Vec3 basePoint = new Vec3(0.5d, 0, 0.5d).add(forwardUnit.scale(0.5));
     basePoint = switch (position) {
-      case LEFT -> basePoint.add(rightUnit.multiply(-7.5d / 16));
-      case CENTER -> basePoint.add(rightUnit.multiply(-1d / 16));
-      case RIGHT -> basePoint.add(rightUnit.multiply(5.5d / 16));
+      case LEFT -> basePoint.add(rightUnit.scale(-7.5d / 16));
+      case CENTER -> basePoint.add(rightUnit.scale(-1d / 16));
+      case RIGHT -> basePoint.add(rightUnit.scale(5.5d / 16));
     };
 
     // 上半部分的栏杆
     if (shape == Shape.TOP) {
-      shapes.add(VoxelShapes.cuboid(new Box(basePoint, basePoint.add(0, 16d / 16, 0).add(forwardUnit.multiply(-0.5d)).add(rightUnit.multiply(2 / 16d)))));
-      basePoint = basePoint.add(forwardUnit.multiply(-0.5d));
+      shapes.add(Shapes.create(new AABB(basePoint, basePoint.add(0, 16d / 16, 0).add(forwardUnit.scale(-0.5d)).add(rightUnit.scale(2 / 16d)))));
+      basePoint = basePoint.add(forwardUnit.scale(-0.5d));
     } else for (int i = 0; i < 8; i++) {
-      shapes.add(VoxelShapes.cuboid(new Box(basePoint, basePoint.add(0, (24 - i) / 16d, 0).add(forwardUnit.multiply(-1d / 16)).add(rightUnit.multiply(2d / 16)))));
-      basePoint = basePoint.add(forwardUnit.multiply(-1d / 16));
+      shapes.add(Shapes.create(new AABB(basePoint, basePoint.add(0, (24 - i) / 16d, 0).add(forwardUnit.scale(-1d / 16)).add(rightUnit.scale(2d / 16)))));
+      basePoint = basePoint.add(forwardUnit.scale(-1d / 16));
     }
     basePoint = basePoint.add(0, -0.5d, 0);
 
     // 下半部分的栏杆
     if (shape == Shape.BOTTOM) {
       basePoint = basePoint.add(0, 0.5d, 0);
-      shapes.add(VoxelShapes.cuboid(new Box(basePoint, basePoint.add(0, 16d / 16, 0).add(forwardUnit.multiply(-0.5d)).add(rightUnit.multiply(2 / 16d)))));
+      shapes.add(Shapes.create(new AABB(basePoint, basePoint.add(0, 16d / 16, 0).add(forwardUnit.scale(-0.5d)).add(rightUnit.scale(2 / 16d)))));
     } else for (int i = 0; i < 8; i++) {
-      shapes.add(VoxelShapes.cuboid(new Box(basePoint, basePoint.add(0, (24 - i) / 16d, 0).add(forwardUnit.multiply(-1d / 16)).add(rightUnit.multiply(2d / 16)))));
-      basePoint = basePoint.add(forwardUnit.multiply(-1d / 16));
+      shapes.add(Shapes.create(new AABB(basePoint, basePoint.add(0, (24 - i) / 16d, 0).add(forwardUnit.scale(-1d / 16)).add(rightUnit.scale(2d / 16)))));
+      basePoint = basePoint.add(forwardUnit.scale(-1d / 16));
     }
 
-    return VoxelShapes.union(VoxelShapes.empty(), shapes.toArray(new VoxelShape[0]));
+    return Shapes.or(Shapes.empty(), shapes.toArray(new VoxelShape[0]));
   }
 
   @Override
@@ -211,58 +216,58 @@ public abstract class HandrailStairBlock<T extends HandrailBlock> extends Horizo
   @Override
   public boolean connectsIn(@NotNull BlockState blockState, @NotNull Direction direction, @Nullable Direction offsetFacing) {
     return offsetFacing == equivalentFacing(blockState)
-        && (blockState.get(FACING) == direction && blockState.get(SHAPE) == Shape.TOP
-        || blockState.get(FACING) == direction.getOpposite() && blockState.get(SHAPE) == Shape.BOTTOM);
+        && (blockState.getValue(FACING) == direction && blockState.getValue(SHAPE) == Shape.TOP
+        || blockState.getValue(FACING) == direction.getOpposite() && blockState.getValue(SHAPE) == Shape.BOTTOM);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public boolean isSideInvisible(BlockState state, BlockState stateFrom, Direction direction) {
+  public boolean skipRendering(BlockState state, BlockState stateFrom, Direction direction) {
     final Block block = stateFrom.getBlock();
     if (block instanceof final Handrails handrails) {
       return handrails.connectsIn(stateFrom, direction.getOpposite(), equivalentFacing(state))
           && block.asItem() == this.asItem();  // 仅限同一栏杆物品对应的方块
     }
-    return super.isSideInvisible(state, stateFrom, direction);
+    return super.skipRendering(state, stateFrom, direction);
   }
 
   @SuppressWarnings("deprecation")
   @Override
   public FluidState getFluidState(BlockState state) {
-    return (state.get(WATERLOGGED)) ? Fluids.WATER.getStill(false) : Fluids.EMPTY.getDefaultState();
+    return (state.getValue(WATERLOGGED)) ? Fluids.WATER.getSource(false) : Fluids.EMPTY.defaultFluidState();
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-    if (state.get(WATERLOGGED)) {
-      world.scheduleFluidTick(pos, Fluids.WATER, Fluids.WATER.getTickRate(world));
+  public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+    if (state.getValue(WATERLOGGED)) {
+      world.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(world));
     }
-    return super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos);
+    return super.updateShape(state, direction, neighborState, world, pos, neighborPos);
   }
 
   @Override
-  public BlockState mirror(BlockState state, BlockMirror mirror) {
-    final Direction facing = state.get(FACING);
-    final Direction mirrored = mirror.apply(facing);
+  public BlockState mirror(BlockState state, Mirror mirror) {
+    final Direction facing = state.getValue(FACING);
+    final Direction mirrored = mirror.mirror(facing);
     return super.mirror(state, mirror)
-        .with(FACING, mirrored)
-        .with(POSITION, state.get(POSITION).swap());
+        .setValue(FACING, mirrored)
+        .setValue(POSITION, state.getValue(POSITION).swap());
   }
 
   @Override
-  public MutableText getName() {
+  public MutableComponent getName() {
     final Block block = baseBlock();
     return block == null ? super.getName() : TextBridge.translatable("block.mishanguc.handrail_stair", block.getName());
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public boolean canPathfindThrough(BlockState state, BlockView world, BlockPos pos, NavigationType type) {
+  public boolean isPathfindable(BlockState state, BlockGetter world, BlockPos pos, PathComputationType type) {
     return false;
   }
 
-  public enum Position implements StringIdentifiable {
+  public enum Position implements StringRepresentable {
     LEFT("left"), CENTER("center"), RIGHT("right");
 
     private final String name;
@@ -272,7 +277,7 @@ public abstract class HandrailStairBlock<T extends HandrailBlock> extends Horizo
     }
 
     @Override
-    public String asString() {
+    public String getSerializedName() {
       return this.name;
     }
 
@@ -285,7 +290,7 @@ public abstract class HandrailStairBlock<T extends HandrailBlock> extends Horizo
     }
   }
 
-  public enum Shape implements StringIdentifiable {
+  public enum Shape implements StringRepresentable {
     BOTTOM("bottom"), MIDDLE("middle"), TOP("top");
 
     private final String name;
@@ -295,7 +300,7 @@ public abstract class HandrailStairBlock<T extends HandrailBlock> extends Horizo
     }
 
     @Override
-    public String asString() {
+    public String getSerializedName() {
       return name;
     }
   }

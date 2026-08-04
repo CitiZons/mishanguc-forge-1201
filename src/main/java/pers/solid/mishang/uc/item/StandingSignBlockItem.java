@@ -1,16 +1,16 @@
 package pers.solid.mishang.uc.item;
 
 import com.google.common.collect.Collections2;
-import net.minecraft.block.Block;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.blockentity.StandingSignBlockEntity;
@@ -21,13 +21,13 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public class StandingSignBlockItem extends NamedBlockItem {
-  public StandingSignBlockItem(Block block, Settings settings) {
+  public StandingSignBlockItem(Block block, Properties settings) {
     super(block, settings);
   }
 
-  protected static @NotNull Stream<TextContext> getTextContextsFromNbt(@Nullable NbtElement nbt) {
+  protected static @NotNull Stream<TextContext> getTextContextsFromNbt(@Nullable Tag nbt) {
     if (nbt == null) return Stream.empty();
-    else if (nbt instanceof NbtList nbtList) {
+    else if (nbt instanceof ListTag nbtList) {
       return nbtList.stream().map(nbt1 -> TextContext.fromNbt(nbt1, StandingSignBlockEntity.DEFAULT_TEXT_CONTEXT.clone()));
     } else {
       return Stream.of(TextContext.fromNbt(nbt, StandingSignBlockEntity.DEFAULT_TEXT_CONTEXT.clone()));
@@ -35,35 +35,34 @@ public class StandingSignBlockItem extends NamedBlockItem {
   }
 
   @Override
-  public void appendTooltip(
-      ItemStack stack, @Nullable World world, List<Text> tooltip, TooltipContext context) {
-    super.appendTooltip(stack, world, tooltip, context);
-    final NbtCompound nbt = stack.getSubNbt("BlockEntityTag");
+  public void appendHoverText(
+      ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag context) {
+    super.appendHoverText(stack, world, tooltip, context);
+    final CompoundTag nbt = stack.getTagElement("BlockEntityTag");
     if (nbt == null) return;
     final List<TextContext> frontTexts = getTextContextsFromNbt(nbt.get("frontTexts")).toList();
     if (!frontTexts.isEmpty()) {
-      tooltip.add(TextBridge.translatable("block.mishanguc.tooltip.standing_sign_block_front").formatted(Formatting.GRAY));
+      tooltip.add(TextBridge.translatable("block.mishanguc.tooltip.standing_sign_block_front").withStyle(ChatFormatting.GRAY));
       tooltip.addAll(Collections2.transform(frontTexts, TextContext::asStyledText));
     }
     final List<TextContext> backTexts = getTextContextsFromNbt(nbt.get("backTexts")).toList();
     if (!backTexts.isEmpty()) {
-      tooltip.add(TextBridge.translatable("block.mishanguc.tooltip.standing_sign_block_back").formatted(Formatting.GRAY));
+      tooltip.add(TextBridge.translatable("block.mishanguc.tooltip.standing_sign_block_back").withStyle(ChatFormatting.GRAY));
       tooltip.addAll(Collections2.transform(backTexts, TextContext::asStyledText));
     }
   }
 
-
   @Override
-  public Text getName(ItemStack stack) {
-    final NbtCompound nbt = stack.getSubNbt("BlockEntityTag");
+  public Component getName(ItemStack stack) {
+    final CompoundTag nbt = stack.getTagElement("BlockEntityTag");
     if (nbt == null) return super.getName(stack);
-    final MutableText text = super.getName(stack).copy();
-    final List<MutableText> texts = Stream.concat(getTextContextsFromNbt(nbt.get("frontTexts")), getTextContextsFromNbt(nbt.get("backTexts"))).map(TextContext::asStyledText).limit(20).toList();
+    final MutableComponent text = super.getName(stack).copy();
+    final List<MutableComponent> texts = Stream.concat(getTextContextsFromNbt(nbt.get("frontTexts")), getTextContextsFromNbt(nbt.get("backTexts"))).map(TextContext::asStyledText).limit(20).toList();
     if (!texts.isEmpty()) {
-      MutableText appendable = TextBridge.empty();
+      MutableComponent appendable = TextBridge.empty();
       texts.forEach(t -> appendable.append(" ").append(t));
       text.append(
-          TextBridge.literal(" -" + appendable.asTruncatedString(25)).formatted(Formatting.GRAY));
+          TextBridge.literal(" -" + appendable.getString(25)).withStyle(ChatFormatting.GRAY));
     }
     return text;
   }

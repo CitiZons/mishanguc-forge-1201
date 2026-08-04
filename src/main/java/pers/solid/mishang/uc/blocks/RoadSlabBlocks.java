@@ -2,10 +2,10 @@ package pers.solid.mishang.uc.blocks;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import net.fabricmc.fabric.api.item.v1.FabricItemSettings;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.util.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegisterEvent;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import pers.solid.mishang.uc.MishangUtils;
@@ -42,14 +42,18 @@ public final class RoadSlabBlocks extends MishangucBlocks {
     return slab;
   }
 
-  static void registerAll() {
-    SLABS.forEach(slab -> {
-      final Identifier baseId = Registries.BLOCK.getId(slab.baseBlock);
-      final String namespace = baseId.getNamespace();
-      final String path = baseId.getPath();
-      final Identifier slabId = new Identifier(namespace, StringUtils.replace(StringUtils.removeEnd(path, "_block"), "road", "road_slab", 1));
-      Registry.register(Registries.BLOCK, slabId, slab);
-      Registry.register(Registries.ITEM, slabId, new NamedBlockItem(slab, new FabricItemSettings()));
-    });
+  private static ResourceLocation slabId(SmartRoadSlabBlock slab) {
+    final ResourceLocation baseId = ForgeRegistries.BLOCKS.getKey(slab.baseBlock);
+    final String namespace = baseId.getNamespace();
+    final String path = baseId.getPath();
+    return new ResourceLocation(namespace, StringUtils.replace(StringUtils.removeEnd(path, "_block"), "road", "road_slab", 1));
+  }
+
+  static void registerSlabBlocks(RegisterEvent.RegisterHelper<net.minecraft.world.level.block.Block> helper) {
+    SLABS.forEach(slab -> helper.register(slabId(slab), slab));
+  }
+
+  static void registerSlabItems(RegisterEvent.RegisterHelper<Item> helper) {
+    SLABS.forEach(slab -> helper.register(slabId(slab), new NamedBlockItem(slab, new Item.Properties())));
   }
 }

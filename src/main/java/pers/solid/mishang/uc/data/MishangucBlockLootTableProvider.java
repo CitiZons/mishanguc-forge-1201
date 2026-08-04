@@ -1,13 +1,13 @@
 package pers.solid.mishang.uc.data;
 
-import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput;
-import net.fabricmc.fabric.api.datagen.v1.provider.FabricBlockLootTableProvider;
-import net.minecraft.block.Block;
-import net.minecraft.loot.LootTable;
-import net.minecraft.loot.LootTables;
-import net.minecraft.util.Identifier;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.BuiltInLootTables;
+import net.minecraft.resources.ResourceLocation;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.block.MishangucBlock;
+import pers.solid.mishang.uc.data.stubs.FabricBlockLootTableProvider;
+import pers.solid.mishang.uc.data.stubs.FabricDataOutput;
 
 public class MishangucBlockLootTableProvider extends FabricBlockLootTableProvider {
   protected MishangucBlockLootTableProvider(FabricDataOutput dataOutput) {
@@ -18,8 +18,8 @@ public class MishangucBlockLootTableProvider extends FabricBlockLootTableProvide
   public void generate() {
     for (Block block : MishangUtils.blocks()) {
       if (block instanceof MishangucBlock r) {
-        final Identifier lootTableId = block.getLootTableId();
-        if (LootTables.EMPTY.equals(lootTableId)) {
+        final ResourceLocation lootTableId = block.getLootTable();
+        if (BuiltInLootTables.EMPTY.equals(lootTableId)) {
           continue;
         }
         final LootTable.Builder lootTable = r.getLootTable(this);

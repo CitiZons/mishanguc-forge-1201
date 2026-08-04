@@ -1,31 +1,45 @@
 package pers.solid.mishang.uc.block;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.SlabBlock;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.client.*;
-import net.minecraft.data.server.loottable.BlockLootTableGenerator;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeJsonProvider;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.loot.LootTable;
-import net.minecraft.recipe.Ingredient;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.state.StateManager;
-import net.minecraft.text.Text;
+import pers.solid.mishang.uc.data.stubs.FabricBlockLootTableProvider;
+
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.item.TooltipFlag;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.TextureKey;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.Model;
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import net.minecraft.data.loot.BlockLootSubProvider;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.FinishedRecipe;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.*;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.blocks.RoadBlocks;
 import pers.solid.mishang.uc.data.MishangucModels;
@@ -36,51 +50,51 @@ import java.util.function.Consumer;
 public abstract class AbstractRoadSlabBlock extends SlabBlock implements Road {
   private final Block baseBlock;
 
-  public AbstractRoadSlabBlock(Block baseBlock, Settings settings) {
+  public AbstractRoadSlabBlock(Block baseBlock, Properties settings) {
     super(settings);
     this.baseBlock = baseBlock;
   }
 
   @Override
-  public LootTable.Builder getLootTable(BlockLootTableGenerator blockLootTableGenerator) {
-    return blockLootTableGenerator.slabDrops(this);
+  public LootTable.Builder getLootTable(FabricBlockLootTableProvider blockLootTableGenerator) {
+    return blockLootTableGenerator.createSlabItemTable(this);
   }
 
   @Override
-  public void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-    super.appendProperties(builder);
+  public void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    super.createBlockStateDefinition(builder);
     appendRoadProperties(builder);
   }
 
   @Nullable
   @Override
-  public BlockState getPlacementState(ItemPlacementContext ctx) {
-    BlockPos blockPos = ctx.getBlockPos();
-    BlockState blockState = ctx.getWorld().getBlockState(blockPos);
-    if (blockState.isOf(this)) {
-      return super.getPlacementState(ctx);
+  public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+    BlockPos blockPos = ctx.getClickedPos();
+    BlockState blockState = ctx.getLevel().getBlockState(blockPos);
+    if (blockState.is(this)) {
+      return super.getStateForPlacement(ctx);
     } else {
-      return withPlacementState(super.getPlacementState(ctx), ctx);
+      return withPlacementState(super.getStateForPlacement(ctx), ctx);
     }
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState rotate(BlockState state, BlockRotation rotation) {
+  public BlockState rotate(BlockState state, Rotation rotation) {
     return rotateRoad(super.rotate(state, rotation), rotation);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState mirror(BlockState state, BlockMirror mirror) {
+  public BlockState mirror(BlockState state, Mirror mirror) {
     return mirrorRoad(super.mirror(state, mirror), mirror);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-    ActionResult result = super.onUse(state, world, pos, player, hand, hit);
-    if (result == ActionResult.FAIL) {
+  public InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    InteractionResult result = super.use(state, world, pos, player, hand, hit);
+    if (result == InteractionResult.FAIL) {
       return result;
     } else {
       return onUseRoad(state, world, pos, player, hand, hit);
@@ -89,38 +103,38 @@ public abstract class AbstractRoadSlabBlock extends SlabBlock implements Road {
 
   @SuppressWarnings("deprecation")
   @Override
-  public void neighborUpdate(
-      BlockState state, World world, BlockPos pos, Block block, BlockPos sourcePos, boolean notify) {
-    super.neighborUpdate(state, world, pos, block, sourcePos, notify);
+  public void neighborChanged(
+      BlockState state, Level world, BlockPos pos, Block block, BlockPos sourcePos, boolean notify) {
+    super.neighborChanged(state, world, pos, block, sourcePos, notify);
     neighborRoadUpdate(state, world, pos, block, sourcePos, notify);
   }
 
   @Override
-  public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-    return withStateForNeighborUpdate(super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos), direction, neighborState, world, pos, neighborPos);
+  public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+    return withStateForNeighborUpdate(super.updateShape(state, direction, neighborState, world, pos, neighborPos), direction, neighborState, world, pos, neighborPos);
   }
 
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   @Override
-  public void appendTooltip(
-      ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
-    super.appendTooltip(stack, world, tooltip, options);
+  public void appendHoverText(
+      ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
+    super.appendHoverText(stack, world, tooltip, options);
     appendDescriptionTooltip(tooltip, options);
     appendRoadTooltip(stack, world, tooltip, options);
   }
 
   @Override
-  public CraftingRecipeJsonBuilder getCraftingRecipe() {
-    return RecipeProvider.createSlabRecipe(RecipeCategory.BUILDING_BLOCKS, this, Ingredient.ofItems(baseBlock))
-        .criterion(RecipeProvider.hasItem(baseBlock), RecipeProvider.conditionsFromItem(baseBlock));
+  public RecipeBuilder getCraftingRecipe() {
+    return FabricRecipeProvider.slabBuilder(RecipeCategory.BUILDING_BLOCKS, this, Ingredient.of(baseBlock))
+        .unlockedBy(FabricRecipeProvider.getHasName(baseBlock), FabricRecipeProvider.has(baseBlock));
   }
 
   @Override
-  public void writeRecipes(Consumer<RecipeJsonProvider> exporter) {
+  public void writeRecipes(Consumer<FinishedRecipe> exporter) {
     Road.super.writeRecipes(exporter);
-    final CraftingRecipeJsonBuilder paintingRecipe = getPaintingRecipe(RoadBlocks.ROAD_BLOCK.getRoadSlab(), this);
+    final RecipeBuilder paintingRecipe = getPaintingRecipe(RoadBlocks.ROAD_BLOCK.getRoadSlab(), this);
     if (paintingRecipe != null) {
-      paintingRecipe.group(getRecipeGroup()).offerTo(exporter, getPaintingRecipeId());
+      paintingRecipe.group(getRecipeGroup()).save(exporter, getPaintingRecipeId());
     }
   }
 
@@ -136,19 +150,19 @@ public abstract class AbstractRoadSlabBlock extends SlabBlock implements Road {
   }
 
   @Override
-  public Identifier uploadModel(String suffix, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys) {
+  public ResourceLocation uploadModel(String suffix, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys) {
     final Model slabModel = MishangucModels.createBlock(getModelName(suffix), textureKeys);
     final Model slabTopModel = MishangucModels.createBlock(getModelName(suffix + "_top"), "_top", textureKeys);
-    final Identifier slabModelId = slabModel.upload(this, textureMap, blockStateModelGenerator.modelCollector);
+    final ResourceLocation slabModelId = slabModel.upload(this, textureMap, blockStateModelGenerator.modelCollector);
     slabTopModel.upload(this, textureMap, blockStateModelGenerator.modelCollector);
     return slabModelId;
   }
 
   @Override
-  public Identifier uploadModel(String suffix, String variant, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys) {
+  public ResourceLocation uploadModel(String suffix, String variant, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys) {
     final Model slabModel = MishangucModels.createBlock(getModelName(suffix), variant, textureKeys);
     final Model slabTopModel = MishangucModels.createBlock(getModelName(suffix + "_top"), variant + "_top", textureKeys);
-    final Identifier slabModelId = slabModel.upload(this, textureMap, blockStateModelGenerator.modelCollector);
+    final ResourceLocation slabModelId = slabModel.upload(this, textureMap, blockStateModelGenerator.modelCollector);
     slabTopModel.upload(this, textureMap, blockStateModelGenerator.modelCollector);
     return slabModelId;
   }

@@ -1,24 +1,29 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.client.*;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.data.server.recipe.ShapedRecipeJsonBuilder;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.text.Text;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.BlockView;
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.item.TooltipFlag;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.VariantSettings;
+import pers.solid.mishang.uc.data.stubs.Model;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.ShapedRecipeBuilder;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.ChatFormatting;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockGetter;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.MishangucProperties;
@@ -32,55 +37,55 @@ public interface RoadWithAngleLine extends Road {
   EnumProperty<HorizontalCornerDirection> FACING = MishangucProperties.HORIZONTAL_CORNER_FACING;
 
   @Override
-  default void appendRoadProperties(StateManager.Builder<Block, BlockState> builder) {
+  default void appendRoadProperties(StateDefinition.Builder<Block, BlockState> builder) {
     builder.add(FACING);
   }
 
   @Override
   default RoadConnectionState getConnectionStateOf(BlockState state, Direction direction) {
     return RoadConnectionState.of(
-        state.get(FACING).hasDirection(direction),
+        state.getValue(FACING).hasDirection(direction),
         getLineColor(state, direction),
-        isBevel() ? EightHorizontalDirection.of(state.get(FACING).mirror(direction)) : EightHorizontalDirection.of(direction),
+        isBevel() ? EightHorizontalDirection.of(state.getValue(FACING).mirror(direction)) : EightHorizontalDirection.of(direction),
         getLineType(state, direction),
         null);
   }
 
   @Override
-  default BlockState mirrorRoad(BlockState state, BlockMirror mirror) {
-    return state.with(FACING, state.get(FACING).mirror(mirror));
+  default BlockState mirrorRoad(BlockState state, Mirror mirror) {
+    return state.setValue(FACING, state.getValue(FACING).mirror(mirror));
   }
 
   @Override
-  default BlockState rotateRoad(BlockState state, BlockRotation rotation) {
-    HorizontalCornerDirection facing = state.get(FACING);
-    return state.with(FACING, facing.rotate(rotation));
+  default BlockState rotateRoad(BlockState state, Rotation rotation) {
+    HorizontalCornerDirection facing = state.getValue(FACING);
+    return state.setValue(FACING, facing.rotate(rotation));
   }
 
   @Override
-  default BlockState withPlacementState(BlockState state, ItemPlacementContext ctx) {
+  default BlockState withPlacementState(BlockState state, BlockPlaceContext ctx) {
     if (state == null) {
       return null;
     }
     final HorizontalCornerDirection rotation =
-        HorizontalCornerDirection.fromRotation(ctx.getPlayerYaw());
-    return state.with(
+        HorizontalCornerDirection.fromRotation(ctx.getRotation());
+    return state.setValue(
         FACING,
-        ctx.getPlayer() != null && ctx.getPlayer().isSneaking()
+        ctx.getPlayer() != null && ctx.getPlayer().isShiftKeyDown()
             ? rotation.getOpposite()
             : rotation);
   }
 
   @Override
   default void appendRoadTooltip(
-      ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
+      ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
     Road.super.appendRoadTooltip(stack, world, tooltip, options);
     tooltip.add(
         TextBridge.translatable("block.mishanguc.tooltip.road_with_angle_line.1")
-            .formatted(Formatting.GRAY));
+            .withStyle(ChatFormatting.GRAY));
     tooltip.add(
         TextBridge.translatable("block.mishanguc.tooltip.road_with_angle_line.2")
-            .formatted(Formatting.GRAY));
+            .withStyle(ChatFormatting.GRAY));
   }
 
   boolean isBevel();
@@ -90,11 +95,11 @@ public interface RoadWithAngleLine extends Road {
     protected final String lineSide;
     protected final String lineTop;
 
-    public Impl(Settings settings, LineColor lineColor, LineType lineType, boolean isBevel, String lineTop) {
+    public Impl(Properties settings, LineColor lineColor, LineType lineType, boolean isBevel, String lineTop) {
       this(settings, lineColor, lineType, MishangUtils.composeStraightLineTexture(lineColor, lineType), isBevel, lineTop);
     }
 
-    public Impl(Settings settings, LineColor lineColor, LineType lineType, String lineSide, boolean isBevel, String lineTop) {
+    public Impl(Properties settings, LineColor lineColor, LineType lineType, String lineSide, boolean isBevel, String lineTop) {
       super(settings, lineColor, lineType);
       this.isBevel = isBevel;
       this.lineSide = lineSide;
@@ -109,18 +114,18 @@ public interface RoadWithAngleLine extends Road {
     @Override
     protected <B extends Block & Road> void registerBaseOrSlabModels(B road, BlockStateModelGenerator blockStateModelGenerator) {
       final FasterTextureMap textures = new FasterTextureMap().base("asphalt").lineSide(lineSide).lineTop(lineTop);
-      final Identifier modelId = road.uploadModel("_with_angle_line", textures, blockStateModelGenerator, MishangucTextureKeys.BASE, MishangucTextureKeys.LINE_SIDE, MishangucTextureKeys.LINE_TOP);
+      final ResourceLocation modelId = road.uploadModel("_with_angle_line", textures, blockStateModelGenerator, MishangucTextureKeys.BASE, MishangucTextureKeys.LINE_SIDE, MishangucTextureKeys.LINE_TOP);
       blockStateModelGenerator.blockStateCollector.accept(road.composeState(VariantsBlockStateSupplier.create(road, BlockStateVariant.create().put(VariantSettings.MODEL, modelId)).coordinate(BlockStateVariantMap.create(FACING).register(direction -> BlockStateVariant.create().put(MishangUtils.INT_Y_VARIANT, direction.asRotation() - 45)))));
     }
 
     @Override
-    public void appendDescriptionTooltip(List<Text> tooltip, TooltipContext options) {
+    public void appendDescriptionTooltip(List<Component> tooltip, TooltipFlag options) {
       if (isBevel()) {
-        tooltip.add(TextBridge.translatable("lineType.angle.bevel").formatted(Formatting.BLUE));
+        tooltip.add(TextBridge.translatable("lineType.angle.bevel").withStyle(ChatFormatting.BLUE));
       } else {
-        tooltip.add(TextBridge.translatable("lineType.angle.right").formatted(Formatting.BLUE));
+        tooltip.add(TextBridge.translatable("lineType.angle.right").withStyle(ChatFormatting.BLUE));
       }
-      tooltip.add(TextBridge.translatable("lineType.angle.composed", lineColor.getName(), lineType.getName()).formatted(Formatting.BLUE));
+      tooltip.add(TextBridge.translatable("lineType.angle.composed", lineColor.getName(), lineType.getName()).withStyle(ChatFormatting.BLUE));
     }
 
     private static final String[] NORMAL_BEVEL_PATTERN = {
@@ -145,20 +150,20 @@ public interface RoadWithAngleLine extends Road {
     };
 
     @Override
-    public CraftingRecipeJsonBuilder getPaintingRecipe(Block base, Block self) {
+    public RecipeBuilder getPaintingRecipe(Block base, Block self) {
       final String[] patterns = isBevel ? switch (lineType) {
         case NORMAL -> NORMAL_BEVEL_PATTERN;
         case DOUBLE -> DOUBLE_BEVEL_PATTERN;
         case THICK -> THICK_BEVEL_PATTERN;
       } : NORMAL_RIGHT_ANGLE_PATTERN;
-      return ShapedRecipeJsonBuilder.create(RecipeCategory.BUILDING_BLOCKS, self, 3)
+      return ShapedRecipeBuilder.shaped(RecipeCategory.BUILDING_BLOCKS, self, 3)
           .pattern(patterns[0])
           .pattern(patterns[1])
           .pattern(patterns[2])
-          .input('*', lineColor.getIngredient())
-          .input('X', base)
-          .criterion("*", RecipeProvider.conditionsFromTag(lineColor.getIngredient()))
-          .criterion(RecipeProvider.hasItem(base), RecipeProvider.conditionsFromItem(base));
+          .define('*', lineColor.getIngredient())
+          .define('X', base)
+          .unlockedBy("*", FabricRecipeProvider.has(lineColor.getIngredient()))
+          .unlockedBy(FabricRecipeProvider.getHasName(base), FabricRecipeProvider.has(base));
     }
   }
 }

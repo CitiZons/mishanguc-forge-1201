@@ -1,17 +1,17 @@
 package pers.solid.mishang.uc.item;
 
 import com.google.common.collect.ImmutableList;
-import net.minecraft.block.Block;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
@@ -24,10 +24,10 @@ import java.util.List;
 /**
  * 类似于一般的方块物品，但是会读取 BlockEntityTag 中的内容来显示文字。
  *
- * @see pers.solid.mishang.uc.blockentity.WallSignBlockEntity#readNbt(NbtCompound)
+ * @see pers.solid.mishang.uc.blockentity.WallSignBlockEntity#load(CompoundTag)
  */
 public class WallSignBlockItem extends NamedBlockItem {
-  public WallSignBlockItem(Block block, Settings settings) {
+  public WallSignBlockItem(Block block, Properties settings) {
     super(block, settings);
   }
 
@@ -38,16 +38,16 @@ public class WallSignBlockItem extends NamedBlockItem {
    * @return 该 nbt 对应的 {@code List<}{@code TextContext>}。
    */
   protected static @NotNull @Unmodifiable List<TextContext> getTextContextsFromNbt(
-      @NotNull NbtCompound nbt) {
-    final NbtElement nbtText = nbt.get("text");
-    if (nbtText instanceof NbtString) {
+      @NotNull CompoundTag nbt) {
+    final Tag nbtText = nbt.get("text");
+    if (nbtText instanceof StringTag) {
       return ImmutableList.of(TextContext.fromNbt(nbt, WallSignBlockEntity.DEFAULT_TEXT_CONTEXT.clone()));
-    } else if (nbtText instanceof NbtCompound) {
+    } else if (nbtText instanceof CompoundTag) {
       return ImmutableList.of(
           TextContext.fromNbt(nbtText, WallSignBlockEntity.DEFAULT_TEXT_CONTEXT.clone()));
-    } else if (nbtText instanceof NbtList) {
+    } else if (nbtText instanceof ListTag) {
       ImmutableList.Builder<TextContext> builder = new ImmutableList.Builder<>();
-      for (NbtElement nbtElement : ((NbtList) nbtText)) {
+      for (Tag nbtElement : ((ListTag) nbtText)) {
         builder.add(TextContext.fromNbt(nbtElement, WallSignBlockEntity.DEFAULT_TEXT_CONTEXT.clone()));
       }
       return builder.build();
@@ -56,38 +56,38 @@ public class WallSignBlockItem extends NamedBlockItem {
   }
 
   @Override
-  public void appendTooltip(
-      ItemStack stack, @Nullable World world, List<Text> tooltip, TooltipContext context) {
-    super.appendTooltip(stack, world, tooltip, context);
-    final NbtCompound nbt = stack.getSubNbt("BlockEntityTag");
+  public void appendHoverText(
+      ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag context) {
+    super.appendHoverText(stack, world, tooltip, context);
+    final CompoundTag nbt = stack.getTagElement("BlockEntityTag");
     if (nbt == null) return;
-    final List<MutableText> texts = ImmutableList.copyOf(
+    final List<MutableComponent> texts = ImmutableList.copyOf(
         getTextContextsFromNbt(nbt).stream()
             .map(TextContext::asStyledText)
             .iterator());
     if (!texts.isEmpty()) {
       tooltip.add(
           TextBridge.translatable("block.mishanguc.tooltip.wall_sign_block")
-              .formatted(Formatting.GRAY));
+              .withStyle(ChatFormatting.GRAY));
       tooltip.addAll(texts);
     }
   }
 
   @Override
-  public Text getName(ItemStack stack) {
-    final NbtCompound nbt = stack.getSubNbt("BlockEntityTag");
+  public Component getName(ItemStack stack) {
+    final CompoundTag nbt = stack.getTagElement("BlockEntityTag");
     if (nbt == null) return super.getName(stack);
-    final MutableText text = super.getName(stack).copy();
-    final List<MutableText> texts = ImmutableList.copyOf(
+    final MutableComponent text = super.getName(stack).copy();
+    final List<MutableComponent> texts = ImmutableList.copyOf(
         getTextContextsFromNbt(nbt).stream()
             .map(TextContext::asStyledText)
             .limit(20)
             .iterator());
     if (!texts.isEmpty()) {
-      MutableText appendable = TextBridge.empty();
+      MutableComponent appendable = TextBridge.empty();
       texts.forEach(t -> appendable.append(" ").append(t));
       text.append(
-          TextBridge.literal(" -" + appendable.asTruncatedString(25)).formatted(Formatting.GRAY));
+          TextBridge.literal(" -" + appendable.getString(25)).withStyle(ChatFormatting.GRAY));
     }
     return text;
   }

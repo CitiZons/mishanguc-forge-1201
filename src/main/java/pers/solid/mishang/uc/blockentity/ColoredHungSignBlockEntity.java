@@ -1,8 +1,8 @@
 package pers.solid.mishang.uc.blockentity;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.BlockPos;
 import pers.solid.mishang.uc.MishangUtils;
 
 /**
@@ -16,17 +16,17 @@ public class ColoredHungSignBlockEntity extends HungSignBlockEntity implements C
   }
 
   @Override
-  public void readNbt(NbtCompound nbt) {
-    super.readNbt(nbt);
+  public void load(CompoundTag nbt) {
+    super.load(nbt);
     color = MishangUtils.readColorFromNbtElement(nbt.get("color"));
-    if (world != null && world.isClient) {
-      world.updateListeners(pos, this.getCachedState(), this.getCachedState(), 3);
+    if (level != null && level.isClientSide) {
+      level.sendBlockUpdated(getBlockPos(), this.getBlockState(), this.getBlockState(), 3);
     }
   }
 
   @Override
-  public void writeNbt(NbtCompound nbt) {
-    super.writeNbt(nbt);
+  public void saveAdditional(CompoundTag nbt) {
+    super.saveAdditional(nbt);
     nbt.putInt("color", color);
   }
 

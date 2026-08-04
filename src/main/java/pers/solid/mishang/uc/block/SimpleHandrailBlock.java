@@ -1,21 +1,28 @@
 package pers.solid.mishang.uc.block;
 
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.data.client.*;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.data.server.recipe.SingleItemRecipeJsonBuilder;
-import net.minecraft.recipe.Ingredient;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.text.MutableText;
-import net.minecraft.util.Identifier;
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.TextureKey;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.SingleItemRecipeBuilder;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.data.MishangucModels;
 import pers.solid.mishang.uc.util.TextBridge;
+import net.minecraft.world.level.block.StairBlock;
 
 /**
  * 简单的栏杆方块。基本上都是采用相同的纹理，如有使用也可以采用不同的纹理。其形状都是最基本的图形。
@@ -46,18 +53,18 @@ public class SimpleHandrailBlock extends HandrailBlock {
   /**
    * 栏杆的纹理。若为 {@code null}，则默认根据 {@link #baseBlock} 推断纹理。
    */
-  public @Nullable Identifier texture;
+  public @Nullable ResourceLocation texture;
   /**
    * 栏杆顶部部分的纹理。
    */
-  public @Nullable Identifier top;
+  public @Nullable ResourceLocation top;
   /**
    * 栏杆底部部分的纹理。
    */
-  public @Nullable Identifier bottom;
+  public @Nullable ResourceLocation bottom;
 
-  public SimpleHandrailBlock(@Nullable Block baseBlock, Settings settings) {
-    super(settings.nonOpaque());
+  public SimpleHandrailBlock(@Nullable Block baseBlock, Properties settings) {
+    super(settings.noOcclusion());
     this.baseBlock = baseBlock;
     this.central = new CentralBlock(this);
     this.corner = new CornerBlock(this);
@@ -66,13 +73,13 @@ public class SimpleHandrailBlock extends HandrailBlock {
   }
 
   public SimpleHandrailBlock(@NotNull Block baseBlock) {
-    this(baseBlock, FabricBlockSettings.copyOf(baseBlock));
+    this(baseBlock, BlockBehaviour.Properties.copy(baseBlock));
   }
 
   @Override
   public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
     final TextureMap textures = getTextures();
-    final Identifier modelId = MishangucModels.SIMPLE_HANDRAIL.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation modelId = MishangucModels.SIMPLE_HANDRAIL.upload(this, textures, blockStateModelGenerator.modelCollector);
     MishangucModels.SIMPLE_HANDRAIL_INVENTORY.upload(ModelIds.getItemModelId(asItem()), textures, blockStateModelGenerator.modelCollector);
     blockStateModelGenerator.blockStateCollector.accept(createBlockStates(modelId));
   }
@@ -110,12 +117,12 @@ public class SimpleHandrailBlock extends HandrailBlock {
   /**
    * @return 该方块的基础纹理变量。
    */
-  protected Identifier getTexture() {
+  protected ResourceLocation getTexture() {
     return texture == null ? TextureMap.getId(baseBlock) : texture;
   }
 
   @Override
-  public MutableText getName() {
+  public MutableComponent getName() {
     if (baseBlock != null) {
       return TextBridge.translatable("block.mishanguc.simple_handrail", baseBlock.getName());
     } else return super.getName();
@@ -123,19 +130,19 @@ public class SimpleHandrailBlock extends HandrailBlock {
 
   public static class CentralBlock extends HandrailCentralBlock<SimpleHandrailBlock> {
     public CentralBlock(@NotNull SimpleHandrailBlock baseBlock) {
-      super(baseBlock, FabricBlockSettings.copyOf(baseBlock).nonOpaque());
+      super(baseBlock, BlockBehaviour.Properties.copy(baseBlock).noOcclusion());
     }
 
     @Override
     public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
-      final Identifier postModelId = MishangucModels.SIMPLE_HANDRAIL_POST.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
-      final Identifier sideModelId = MishangucModels.SIMPLE_HANDRAIL_SIDE.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
-      final Identifier postSideModelId = MishangucModels.SIMPLE_HANDRAIL_POST_SIDE.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
+      final ResourceLocation postModelId = MishangucModels.SIMPLE_HANDRAIL_POST.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
+      final ResourceLocation sideModelId = MishangucModels.SIMPLE_HANDRAIL_SIDE.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
+      final ResourceLocation postSideModelId = MishangucModels.SIMPLE_HANDRAIL_POST_SIDE.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
       blockStateModelGenerator.blockStateCollector.accept(createBlockStates(postModelId, postSideModelId, sideModelId));
     }
 
     @Override
-    public MutableText getName() {
+    public MutableComponent getName() {
       final Block block = baseBlock();
       return block == null ? super.getName() : TextBridge.translatable("block.mishanguc.simple_handrail_central", block.getName());
     }
@@ -143,17 +150,17 @@ public class SimpleHandrailBlock extends HandrailBlock {
 
   public static class CornerBlock extends HandrailCornerBlock<SimpleHandrailBlock> {
     public CornerBlock(@NotNull SimpleHandrailBlock baseHandrail) {
-      super(baseHandrail, FabricBlockSettings.copyOf(baseHandrail).nonOpaque());
+      super(baseHandrail, BlockBehaviour.Properties.copy(baseHandrail).noOcclusion());
     }
 
     @Override
     public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
-      final Identifier modelId = MishangucModels.SIMPLE_HANDRAIL_CORNER.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
+      final ResourceLocation modelId = MishangucModels.SIMPLE_HANDRAIL_CORNER.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
       blockStateModelGenerator.blockStateCollector.accept(createBlockStates(modelId));
     }
 
     @Override
-    public MutableText getName() {
+    public MutableComponent getName() {
       final Block block = baseBlock();
       return block == null ? super.getName() : TextBridge.translatable("block.mishanguc.simple_handrail_corner", block.getName());
     }
@@ -161,23 +168,23 @@ public class SimpleHandrailBlock extends HandrailBlock {
 
   public static class StairBlock extends HandrailStairBlock<SimpleHandrailBlock> {
     public StairBlock(@NotNull SimpleHandrailBlock baseRail) {
-      super(baseRail, FabricBlockSettings.copyOf(baseRail).nonOpaque());
+      super(baseRail, BlockBehaviour.Properties.copy(baseRail).noOcclusion());
     }
 
     @Override
     public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
       final TextureMap textures = baseHandrail.getTextures();
-      final Identifier baseModelId = MishangucModels.createBlock("simple_handrail_stair_middle_center", TextureKey.TEXTURE, TextureKey.TOP, TextureKey.BOTTOM).upload(this, textures, blockStateModelGenerator.modelCollector);
+      final ResourceLocation baseModelId = MishangucModels.createBlock("simple_handrail_stair_middle_center", TextureKey.TEXTURE, TextureKey.TOP, TextureKey.BOTTOM).upload(this, textures, blockStateModelGenerator.modelCollector);
       for (Shape shape : Shape.values()) {
         for (Position position : Position.values()) {
-          MishangucModels.createBlock(String.format("simple_handrail_stair_%s_%s", shape.asString(), position.asString()), "_" + shape.asString() + "_" + position.asString(), TextureKey.TEXTURE, TextureKey.TOP, TextureKey.BOTTOM).upload(this, textures, blockStateModelGenerator.modelCollector);
+          MishangucModels.createBlock(String.format("simple_handrail_stair_%s_%s", shape.getSerializedName(), position.getSerializedName()), "_" + shape.getSerializedName() + "_" + position.getSerializedName(), TextureKey.TEXTURE, TextureKey.TOP, TextureKey.BOTTOM).upload(this, textures, blockStateModelGenerator.modelCollector);
         }
       }
       blockStateModelGenerator.blockStateCollector.accept(createBlockStates(baseModelId));
     }
 
     @Override
-    public MutableText getName() {
+    public MutableComponent getName() {
       final Block block = baseBlock();
       return block == null ? super.getName() : TextBridge.translatable("block.mishanguc.simple_handrail_stair", block.getName());
     }
@@ -185,17 +192,17 @@ public class SimpleHandrailBlock extends HandrailBlock {
 
   public static class OuterBlock extends HandrailOuterBlock<SimpleHandrailBlock> {
     public OuterBlock(@NotNull SimpleHandrailBlock baseRail) {
-      super(baseRail, FabricBlockSettings.copyOf(baseRail).nonOpaque());
+      super(baseRail, BlockBehaviour.Properties.copy(baseRail).noOcclusion());
     }
 
     @Override
     public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
-      final Identifier modelId = MishangucModels.SIMPLE_HANDRAIL_OUTER.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
+      final ResourceLocation modelId = MishangucModels.SIMPLE_HANDRAIL_OUTER.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
       blockStateModelGenerator.blockStateCollector.accept(createBlockStates(modelId));
     }
 
     @Override
-    public MutableText getName() {
+    public MutableComponent getName() {
       final Block block = baseBlock();
       return block == null ? super.getName() : TextBridge.translatable("block.mishanguc.simple_handrail_outer", block.getName());
     }
@@ -215,9 +222,9 @@ public class SimpleHandrailBlock extends HandrailBlock {
   }
 
   @Override
-  public CraftingRecipeJsonBuilder getCraftingRecipe() {
-    return SingleItemRecipeJsonBuilder.createStonecutting(Ingredient.ofItems(baseBlock), RecipeCategory.DECORATIONS, this, 5)
-        .criterion(RecipeProvider.hasItem(baseBlock), RecipeProvider.conditionsFromItem(baseBlock))
+  public RecipeBuilder getCraftingRecipe() {
+    return SingleItemRecipeBuilder.stonecutting(Ingredient.of(baseBlock), RecipeCategory.DECORATIONS, this, 5)
+        .unlockedBy(FabricRecipeProvider.getHasName(baseBlock), FabricRecipeProvider.has(baseBlock))
         .group(getRecipeGroup());
   }
 }

@@ -7,14 +7,13 @@ import com.google.gson.JsonObject;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
-import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.command.CommandSource;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.util.Util;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fml.loading.FMLPaths;
+import net.minecraft.client.Minecraft;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.Util;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.slf4j.Logger;
@@ -32,14 +31,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import net.minecraft.commands.CommandSourceStack;
 
-@Environment(EnvType.CLIENT)
+@OnlyIn(Dist.CLIENT)
 public final class SignPresets {
   public static final Logger LOGGER = LoggerFactory.getLogger("Mishang Urban Construction/Sign Presets");
   /**
    * 存储告示版预设文件的路径。所有预设文件都是 .json 结尾，且不支持子文件夹。
    */
-  public static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("mishanguc_sign_presets");
+  public static final Path PATH = FMLPaths.CONFIGDIR.get().resolve("mishanguc_sign_presets");
   private static final Map<String, SignPreset> REGISTRY = new LinkedHashMap<>();
   /**
    * 模组内置的、非通过文件加载的告示牌预设的 id。
@@ -48,11 +48,11 @@ public final class SignPresets {
   /**
    * 在命令中提供告示牌预设 id 的建议。
    */
-  public static final SuggestionProvider<FabricClientCommandSource> SUGGEST_KEYS = (commandContext, suggestionsBuilder) -> CommandSource.suggestMatching(REGISTRY.keySet().stream().map(NbtString::escape), suggestionsBuilder);
+  public static final SuggestionProvider<CommandSourceStack> SUGGEST_KEYS = (commandContext, suggestionsBuilder) -> SharedSuggestionProvider.suggest(REGISTRY.keySet().stream().map(StringTag::quoteAndEscape), suggestionsBuilder);
   /**
    * 在命令中提供告示牌预设 id 包括内置预设 id（可能实际已从注册表中移除）的建议。
    */
-  public static final SuggestionProvider<FabricClientCommandSource> SUGGEST_KEYS_AND_BUILTIN = (commandContext, suggestionsBuilder) -> CommandSource.suggestMatching(Stream.concat(REGISTRY.keySet().stream(), BUILTIN.keySet().stream()).distinct().map(NbtString::escape), suggestionsBuilder);
+  public static final SuggestionProvider<CommandSourceStack> SUGGEST_KEYS_AND_BUILTIN = (commandContext, suggestionsBuilder) -> SharedSuggestionProvider.suggest(Stream.concat(REGISTRY.keySet().stream(), BUILTIN.keySet().stream()).distinct().map(StringTag::quoteAndEscape), suggestionsBuilder);
 
   // region text entries
   private static final TextContext DEFAULT_TEXT = new TextContext();
@@ -148,7 +148,7 @@ public final class SignPresets {
                 if (parse.result().isPresent()) {
                   counter.increment();
                 }
-                parse.result().ifPresent(info -> MinecraftClient.getInstance().execute(() -> register(info.create(id))));
+                parse.result().ifPresent(info -> Minecraft.getInstance().execute(() -> register(info.create(id))));
                 parse.promotePartial(error -> LOGGER.warn("Failed to parse sign preset JSON for {}: {}", path.getFileName(), error));
               } catch (Throwable e) {
                 LOGGER.error("Error reading file {}", path, e);

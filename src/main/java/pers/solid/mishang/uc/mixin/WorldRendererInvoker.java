@@ -1,25 +1,25 @@
 package pers.solid.mishang.uc.mixin;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.shape.VoxelShape;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Environment(EnvType.CLIENT)
-@Mixin(WorldRenderer.class)
+@OnlyIn(Dist.CLIENT)
+@Mixin(LevelRenderer.class)
 public interface WorldRendererInvoker {
   /**
    * 在指定位置渲染指定外观。
    *
-   * @see WorldRenderer
+   * @see LevelRenderer
    */
-  @Invoker("drawCuboidShapeOutline")
+  @Invoker("renderShape")
   static void drawCuboidShapeOutline(
-      MatrixStack matrices,
+      PoseStack matrices,
       VertexConsumer vertexConsumer,
       VoxelShape shape,
       double offsetX,

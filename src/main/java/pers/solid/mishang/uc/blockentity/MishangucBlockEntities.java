@@ -1,21 +1,25 @@
 package pers.solid.mishang.uc.blockentity;
 
 import com.google.common.collect.Streams;
-import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
-import net.minecraft.block.Block;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.registries.RegisterEvent;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.Mishanguc;
 import pers.solid.mishang.uc.block.*;
 import pers.solid.mishang.uc.blocks.*;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.stream.Stream;
 
 public final class MishangucBlockEntities {
+
+  /** Block entity types built during static init, registered later via {@link #registerAll}. */
+  private static final Map<ResourceLocation, BlockEntityType<?>> TO_REGISTER = new LinkedHashMap<>();
 
   public static final BlockEntityType<SimpleColoredBlockEntity> SIMPLE_COLORED_BLOCK_ENTITY = register(
       "simple_colored_block_entity",
@@ -65,16 +69,18 @@ public final class MishangucBlockEntities {
       MishangUtils.instanceStream(StandingSignBlocks.class, StandingSignBlock.class)
           .filter(block -> block instanceof ColoredBlock));
 
-  // 不做事情，但是会初始化类。
-  @SuppressWarnings("EmptyMethod")
-  public static void init() {
+  /** Registers all block entity types during the {@code RegisterEvent} for the BLOCK_ENTITY_TYPE registry. */
+  public static void registerAll(RegisterEvent.RegisterHelper<BlockEntityType<?>> helper) {
+    TO_REGISTER.forEach(helper::register);
   }
 
-  private static <T extends BlockEntity> BlockEntityType<T> register(String name, FabricBlockEntityTypeBuilder.Factory<T> factory, Block... blocks) {
-    return Registry.register(Registries.BLOCK_ENTITY_TYPE, Mishanguc.id(name), FabricBlockEntityTypeBuilder.create(factory, blocks).build(null));
+  private static <T extends BlockEntity> BlockEntityType<T> register(String name, BlockEntityType.BlockEntitySupplier<T> factory, Block... blocks) {
+    final BlockEntityType<T> type = BlockEntityType.Builder.of(factory, blocks).build(null);
+    TO_REGISTER.put(Mishanguc.id(name), type);
+    return type;
   }
 
-  private static <T extends BlockEntity> BlockEntityType<T> register(String name, FabricBlockEntityTypeBuilder.Factory<T> factory, Stream<? extends Block> blockStream) {
+  private static <T extends BlockEntity> BlockEntityType<T> register(String name, BlockEntityType.BlockEntitySupplier<T> factory, Stream<? extends Block> blockStream) {
     return register(name, factory, blockStream.toArray(Block[]::new));
   }
 }

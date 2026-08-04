@@ -1,9 +1,11 @@
 package pers.solid.mishang.uc.util;
 
-import net.minecraft.text.*;
+import net.minecraft.network.chat.*;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.util.Optional;
+import net.minecraft.network.chat.contents.LiteralContents;
+import net.minecraft.world.level.storage.loot.providers.nbt.ContextNbtProvider;
 
 /**
  * 实用类，用于在不同版本之间减少代码差异。
@@ -11,41 +13,41 @@ import java.util.Optional;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @ApiStatus.AvailableSince("0.2.4")
 @ApiStatus.NonExtendable
-public interface TextBridge extends Text {
-  static MutableText literal(String string) {
-    return Text.literal(string);
+public interface TextBridge extends Component {
+  static MutableComponent literal(String string) {
+    return Component.literal(string);
   }
 
-  static MutableText translatable(String key) {
-    return Text.translatable(key);
+  static MutableComponent translatable(String key) {
+    return Component.translatable(key);
   }
 
-  static MutableText translatable(String key, Object... args) {
-    return Text.translatable(key, args);
+  static MutableComponent translatable(String key, Object... args) {
+    return Component.translatable(key, args);
   }
 
-  static MutableText empty() {
-    return Text.empty();
+  static MutableComponent empty() {
+    return Component.empty();
   }
 
-  static MutableText keybind(String string) {
-    return Text.keybind(string);
+  static MutableComponent keybind(String string) {
+    return Component.keybind(string);
   }
 
-  static MutableText nbt(String rawPath, boolean interpret, Optional<Text> separator, NbtDataSource dataSource) {
-    return Text.nbt(rawPath, interpret, separator, dataSource);
+  static MutableComponent nbt(String rawPath, boolean interpret, Optional<Component> separator, net.minecraft.network.chat.contents.DataSource dataSource) {
+    return Component.nbt(rawPath, interpret, separator, dataSource);
   }
 
-  static MutableText score(String name, String objective) {
-    return Text.score(name, objective);
+  static MutableComponent score(String name, String objective) {
+    return Component.score(name, objective);
   }
 
-  static MutableText selector(String pattern, Optional<Text> separator) {
-    return Text.selector(pattern, separator);
+  static MutableComponent selector(String pattern, Optional<Component> separator) {
+    return Component.selector(pattern, separator);
   }
 
-  static boolean isEmpty(Text text) {
-    final TextContent content = text.getContent();
-    return content == TextContent.EMPTY || content instanceof final LiteralTextContent literalTextContent && literalTextContent.string().isEmpty();
+  static boolean isEmpty(Component text) {
+    final ComponentContents content = text.getContents();
+    return content == ComponentContents.EMPTY || content instanceof final LiteralContents literalComponentContents && literalComponentContents.text().isEmpty();
   }
 }

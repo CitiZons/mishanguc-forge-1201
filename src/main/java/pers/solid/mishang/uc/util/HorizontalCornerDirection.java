@@ -1,17 +1,20 @@
 package pers.solid.mishang.uc.util;
 
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.StringIdentifiable;
-import net.minecraft.util.math.Direction;
+import net.minecraft.client.Minecraft;
+
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.util.StringRepresentable;
+import net.minecraft.core.Direction;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import com.mojang.math.Axis;
 
 /**
  * 水平的角落的方向。Minecraft 原版的 {@link Direction} 包含 6 个正的方向，其中 4 个水平正方向之间会有 4 个角落的方向，也就是偏 45° 的方向。
  */
-public enum HorizontalCornerDirection implements StringIdentifiable {
+public enum HorizontalCornerDirection implements StringRepresentable {
   /**
    * 西南
    */
@@ -60,7 +63,7 @@ public enum HorizontalCornerDirection implements StringIdentifiable {
         return direction;
       }
     }
-    throw new IllegalArgumentException("There is no horizontal corner direction composed of " + dir1.asString() + " " + dir2.asString() + ".");
+    throw new IllegalArgumentException("There is no horizontal corner direction composed of " + dir1.getSerializedName() + " " + dir2.getSerializedName() + ".");
   }
 
   @Contract(value = "_, _, !null -> !null", pure = true)
@@ -98,7 +101,7 @@ public enum HorizontalCornerDirection implements StringIdentifiable {
   }
 
   @Override
-  public String asString() {
+  public String getSerializedName() {
     return this.name;
   }
 
@@ -116,7 +119,7 @@ public enum HorizontalCornerDirection implements StringIdentifiable {
     if (dir2.getAxis() == axis) {
       return dir2;
     }
-    throw new IllegalStateException("Direction " + this.asString() + " has no direction in axis " + axis.asString() + "!");
+    throw new IllegalStateException("Direction " + this.getSerializedName() + " has no direction in axis " + axis.getSerializedName() + "!");
   }
 
   public int asRotation() {
@@ -130,32 +133,32 @@ public enum HorizontalCornerDirection implements StringIdentifiable {
     return direction == dir1 || direction == dir2;
   }
 
-  public @NotNull HorizontalCornerDirection rotateYClockwise() {
-    return fromDirections(dir1.rotateYClockwise(), dir2.rotateYClockwise());
+  public @NotNull HorizontalCornerDirection getClockWise() {
+    return fromDirections(dir1.getClockWise(), dir2.getClockWise());
   }
 
-  public @NotNull HorizontalCornerDirection rotateYCounterclockwise() {
-    return fromDirections(dir1.rotateYCounterclockwise(), dir2.rotateYCounterclockwise());
+  public @NotNull HorizontalCornerDirection getCounterClockWise() {
+    return fromDirections(dir1.getCounterClockWise(), dir2.getCounterClockWise());
   }
 
-  public @NotNull HorizontalCornerDirection mirror(BlockMirror mirror) {
-    return fromDirections(mirror.apply(dir1), mirror.apply(dir2));
+  public @NotNull HorizontalCornerDirection mirror(Mirror mirror) {
+    return fromDirections(mirror.mirror(dir1), mirror.mirror(dir2));
   }
 
   public @NotNull HorizontalCornerDirection mirror(Direction direction) {
-    BlockMirror mirror = switch (direction.getAxis()) {
-      case X -> BlockMirror.LEFT_RIGHT;
-      case Z -> BlockMirror.FRONT_BACK;
-      default -> BlockMirror.NONE;
+    Mirror mirror = switch (direction.getAxis()) {
+      case X -> Mirror.LEFT_RIGHT;
+      case Z -> Mirror.FRONT_BACK;
+      default -> Mirror.NONE;
     };
     return mirror(mirror);
   }
 
-  public @NotNull HorizontalCornerDirection rotate(BlockRotation rotation) {
+  public @NotNull HorizontalCornerDirection rotate(Rotation rotation) {
     return switch (rotation) {
       case NONE -> this;
-      case CLOCKWISE_90 -> this.rotateYClockwise();
-      case COUNTERCLOCKWISE_90 -> this.rotateYCounterclockwise();
+      case CLOCKWISE_90 -> this.getClockWise();
+      case COUNTERCLOCKWISE_90 -> this.getCounterClockWise();
       case CLOCKWISE_180 -> this.getOpposite();
     };
   }

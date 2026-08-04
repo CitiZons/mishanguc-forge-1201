@@ -1,58 +1,62 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.data.client.BlockStateModelGenerator;
-import net.minecraft.data.client.ModelProvider;
-import net.minecraft.data.client.TextureKey;
-import net.minecraft.data.client.TextureMap;
-import net.minecraft.data.server.loottable.BlockLootTableGenerator;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeJsonProvider;
-import net.minecraft.data.server.recipe.SingleItemRecipeJsonBuilder;
-import net.minecraft.item.ItemConvertible;
-import net.minecraft.loot.LootTable;
-import net.minecraft.util.Identifier;
+import pers.solid.mishang.uc.data.stubs.FabricBlockLootTableProvider;
+
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
+import net.minecraft.world.level.block.Block;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+// TODO: Forge data gen - BlockStateModelGenerator
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import pers.solid.mishang.uc.data.stubs.TextureKey;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import net.minecraft.data.loot.BlockLootSubProvider;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.FinishedRecipe;
+import net.minecraft.data.recipes.SingleItemRecipeBuilder;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.function.Consumer;
 
 public interface MishangucBlock {
-  default LootTable.Builder getLootTable(BlockLootTableGenerator blockLootTableGenerator) {
-    return blockLootTableGenerator.drops((ItemConvertible) this);
+  default LootTable.Builder getLootTable(FabricBlockLootTableProvider blockLootTableGenerator) {
+    return blockLootTableGenerator.drops((ItemLike) this);
   }
 
-  default CraftingRecipeJsonBuilder getCraftingRecipe() {
+  default RecipeBuilder getCraftingRecipe() {
     return null;
   }
 
-  default SingleItemRecipeJsonBuilder getStonecuttingRecipe() {
+  default SingleItemRecipeBuilder getStonecuttingRecipe() {
     return null;
   }
 
-  default Identifier getStonecuttingRecipeId() {
-    return CraftingRecipeJsonBuilder.getItemId((ItemConvertible) this).withSuffixedPath("_from_stonecutting");
+  default ResourceLocation getStonecuttingRecipeId() {
+    return FabricRecipeProvider.getConversionRecipeName((ItemLike) this).withSuffix("_from_stonecutting");
   }
 
   default boolean shouldWriteStonecuttingRecipe() {
     return false;
   }
 
-  default void writeRecipes(Consumer<RecipeJsonProvider> exporter) {
-    final CraftingRecipeJsonBuilder craftingRecipe = getCraftingRecipe();
+  default void writeRecipes(Consumer<FinishedRecipe> exporter) {
+    final RecipeBuilder craftingRecipe = getCraftingRecipe();
     if (craftingRecipe != null) {
-      craftingRecipe.offerTo(exporter);
+      craftingRecipe.save(exporter);
     }
     if (shouldWriteStonecuttingRecipe()) {
-      final SingleItemRecipeJsonBuilder stonecuttingRecipe = getStonecuttingRecipe();
+      final SingleItemRecipeBuilder stonecuttingRecipe = getStonecuttingRecipe();
       if (stonecuttingRecipe != null) {
-        stonecuttingRecipe.offerTo(exporter, getStonecuttingRecipeId());
+        stonecuttingRecipe.save(exporter, getStonecuttingRecipeId());
       }
     }
   }
 
   void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator);
 
-
-  default Identifier getTexture(TextureKey key) {
+  default ResourceLocation getTexture(TextureKey key) {
     return TextureMap.getId(((Block) this));
   }
 

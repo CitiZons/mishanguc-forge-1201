@@ -1,27 +1,35 @@
 package pers.solid.mishang.uc.block;
 
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.client.BlockStateSupplier;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.data.server.recipe.SingleItemRecipeJsonBuilder;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.recipe.Ingredient;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.state.StateManager;
-import net.minecraft.text.Text;
+import net.minecraft.Util;
+
+import pers.solid.mishang.uc.MishangUtils;
+
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.item.TooltipFlag;
+import pers.solid.mishang.uc.data.stubs.BlockStateSupplier;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.SingleItemRecipeBuilder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.*;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.data.ModelHelper;
@@ -30,6 +38,8 @@ import pers.solid.mishang.uc.util.LineType;
 import pers.solid.mishang.uc.util.RoadConnectionState;
 
 import java.util.List;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionHand;
 
 /**
  * 根据其基础方块来生成台阶方块。
@@ -43,17 +53,17 @@ public class SmartRoadSlabBlock<T extends AbstractRoadBlock> extends AbstractRoa
   public SmartRoadSlabBlock(T baseBlock) {
     super(baseBlock, Util.make(() -> {
       cachedBaseBlock = baseBlock;
-      return FabricBlockSettings.copyOf(baseBlock);
+      return BlockBehaviour.Properties.copy(baseBlock);
     }));
     this.baseBlock = baseBlock;
   }
 
   @Override
-  public void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-    super.appendProperties(builder);
+  public void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    super.createBlockStateDefinition(builder);
     // 由于该方法是在构造方法中执行的，所以可能存在 null 的情况。
     (baseBlock == null ? cachedBaseBlock : baseBlock)
-        .getStateManager()
+        .getStateDefinition()
         .getProperties()
         .forEach(builder::add);
   }
@@ -69,42 +79,42 @@ public class SmartRoadSlabBlock<T extends AbstractRoadBlock> extends AbstractRoa
   }
 
   @Override
-  public void appendDescriptionTooltip(List<Text> tooltip, TooltipContext options) {
+  public void appendDescriptionTooltip(List<Component> tooltip, TooltipFlag options) {
     baseBlock.appendDescriptionTooltip(tooltip, options);
   }
 
   @Nullable
   @Override
-  public BlockState getPlacementState(ItemPlacementContext ctx) {
-    BlockPos blockPos = ctx.getBlockPos();
-    BlockState blockState = ctx.getWorld().getBlockState(blockPos);
-    if (blockState.isOf(this)) {
-      return super.getPlacementState(ctx);
+  public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+    BlockPos blockPos = ctx.getClickedPos();
+    BlockState blockState = ctx.getLevel().getBlockState(blockPos);
+    if (blockState.is(this)) {
+      return super.getStateForPlacement(ctx);
     } else {
-      return baseBlock.withPlacementState(super.getPlacementState(ctx), ctx);
+      return baseBlock.withPlacementState(super.getStateForPlacement(ctx), ctx);
     }
   }
 
   @Override
-  public BlockState rotate(BlockState state, BlockRotation rotation) {
+  public BlockState rotate(BlockState state, Rotation rotation) {
     return baseBlock.rotate(state, rotation);
   }
 
   @Override
-  public BlockState mirror(BlockState state, BlockMirror mirror) {
+  public BlockState mirror(BlockState state, Mirror mirror) {
     return baseBlock.mirror(state, mirror);
   }
 
   @Override
-  public ActionResult onUse(
+  public InteractionResult use(
       BlockState state,
-      World world,
+      Level world,
       BlockPos pos,
-      PlayerEntity player,
-      Hand hand,
+      Player player,
+      InteractionHand hand,
       BlockHitResult hit) {
-    final ActionResult result = super.onUse(state, world, pos, player, hand, hit);
-    if (result == ActionResult.FAIL) {
+    final InteractionResult result = super.use(state, world, pos, player, hand, hit);
+    if (result == InteractionResult.FAIL) {
       return result;
     } else {
       return onUseRoad(state, world, pos, player, hand, hit);
@@ -112,21 +122,21 @@ public class SmartRoadSlabBlock<T extends AbstractRoadBlock> extends AbstractRoa
   }
 
   @Override
-  public void neighborUpdate(
-      BlockState state, World world, BlockPos pos, Block block, BlockPos sourcePos, boolean notify) {
-    baseBlock.neighborUpdate(state, world, pos, block, sourcePos, notify);
+  public void neighborChanged(
+      BlockState state, Level world, BlockPos pos, Block block, BlockPos sourcePos, boolean notify) {
+    baseBlock.neighborChanged(state, world, pos, block, sourcePos, notify);
   }
 
   @Override
-  public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-    return getStateWithProperties(baseBlock.getStateWithProperties(state).getStateForNeighborUpdate(direction, neighborState, world, pos, neighborPos))
-        .with(TYPE, state.get(TYPE))
-        .with(WATERLOGGED, state.get(WATERLOGGED));
+  public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+    return MishangUtils.getStateWithProperties(this, MishangUtils.getStateWithProperties(baseBlock, state).updateShape(direction, neighborState, world, pos, neighborPos))
+        .setValue(TYPE, state.getValue(TYPE))
+        .setValue(WATERLOGGED, state.getValue(WATERLOGGED));
   }
 
   @Override
   public void appendRoadTooltip(
-      ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
+      ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
     baseBlock.appendRoadTooltip(stack, world, tooltip, options);
   }
 
@@ -141,13 +151,13 @@ public class SmartRoadSlabBlock<T extends AbstractRoadBlock> extends AbstractRoa
   }
 
   @Override
-  public SingleItemRecipeJsonBuilder getStonecuttingRecipe() {
-    return SingleItemRecipeJsonBuilder.createStonecutting(Ingredient.ofItems(baseBlock), RecipeCategory.BUILDING_BLOCKS, this, 2)
-        .criterion(RecipeProvider.hasItem(baseBlock), RecipeProvider.conditionsFromItem(baseBlock));
+  public SingleItemRecipeBuilder getStonecuttingRecipe() {
+    return SingleItemRecipeBuilder.stonecutting(Ingredient.of(baseBlock), RecipeCategory.BUILDING_BLOCKS, this, 2)
+        .unlockedBy(FabricRecipeProvider.getHasName(baseBlock), FabricRecipeProvider.has(baseBlock));
   }
 
   @Override
-  public CraftingRecipeJsonBuilder getPaintingRecipe(Block base, Block self) {
+  public RecipeBuilder getPaintingRecipe(Block base, Block self) {
     return baseBlock.getPaintingRecipe(base, this);
   }
 

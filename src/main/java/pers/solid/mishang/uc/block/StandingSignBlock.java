@@ -1,44 +1,55 @@
 package pers.solid.mishang.uc.block;
 
+import net.minecraft.world.level.block.SupportType;
+
+import net.minecraft.Util;
+
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
 import it.unimi.dsi.fastutil.booleans.BooleanArraySet;
 import it.unimi.dsi.fastutil.booleans.BooleanSet;
 import it.unimi.dsi.fastutil.booleans.BooleanSets;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.client.*;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.data.server.recipe.RecipeProvider;
-import net.minecraft.data.server.recipe.ShapedRecipeJsonBuilder;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.*;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.IntProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.item.TooltipFlag;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.BlockStateSupplier;
+import pers.solid.mishang.uc.data.stubs.VariantSettings;
+import pers.solid.mishang.uc.data.stubs.Model;
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.ShapedRecipeBuilder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.item.*;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.*;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
-import net.minecraft.world.WorldEvents;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -50,10 +61,20 @@ import pers.solid.mishang.uc.blocks.WallSignBlocks;
 import pers.solid.mishang.uc.data.MishangucModels;
 import pers.solid.mishang.uc.data.MishangucTextureKeys;
 import pers.solid.mishang.uc.data.ModelHelper;
+import pers.solid.mishang.uc.data.stubs.PacketByteBufs;
+import pers.solid.mishang.uc.data.stubs.ServerPlayNetworking;
 import pers.solid.mishang.uc.mixin.ItemUsageContextInvoker;
 import pers.solid.mishang.uc.util.TextBridge;
+import net.minecraft.ChatFormatting;
 
 import java.util.List;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.resources.ResourceLocation;
+import com.mojang.math.Axis;
 
 /**
  * 本模组中的直立告示牌方块。
@@ -63,32 +84,32 @@ import java.util.List;
  * @see pers.solid.mishang.uc.render.StandingSignBlockEntityRenderer
  */
 @ApiStatus.AvailableSince("1.0.2")
-public class StandingSignBlock extends Block implements BlockEntityProvider, Waterloggable, MishangucBlock {
+public class StandingSignBlock extends Block implements EntityBlock, SimpleWaterloggedBlock, MishangucBlock {
 
-  public static final IntProperty ROTATION = Properties.ROTATION;
-  public static final BooleanProperty WATERLOGGED = Properties.WATERLOGGED;
+  public static final IntegerProperty ROTATION = BlockStateProperties.ROTATION_16;
+  public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
   /**
    * 指定告示牌底部是否有杆子。默认取决于底部方块的侧面形状。按住 Shift 并点击告示牌可以切换。
    */
-  public static final BooleanProperty DOWN = Properties.DOWN;
-  protected static final VoxelShape SHAPE_NS = createCuboidShape(0, 8, 6.5, 16, 16, 9.5);
-  protected static final VoxelShape SHAPE_WE = createCuboidShape(6.5, 8, 0, 9.5, 16, 16);
-  protected static final VoxelShape SHAPE_NS_WIDE = createCuboidShape(2, 8, 5, 14, 16, 11);
-  protected static final VoxelShape SHAPE_WE_WIDE = createCuboidShape(5, 8, 2, 11, 16, 14);
-  protected static final VoxelShape SHAPE_CENTER = createCuboidShape(2.5, 8, 2.5, 13.5, 16, 13.5);
-  protected static final VoxelShape CULLING_SHAPE = createCuboidShape(7.5, 0, 7.5, 8.5, 8, 8.5);
-  protected static final VoxelShape BAR_SHAPE = createCuboidShape(6.5, 0, 6.5, 9.5, 8, 9.5);
+  public static final BooleanProperty DOWN = BlockStateProperties.DOWN;
+  protected static final VoxelShape SHAPE_NS = box(0, 8, 6.5, 16, 16, 9.5);
+  protected static final VoxelShape SHAPE_WE = box(6.5, 8, 0, 9.5, 16, 16);
+  protected static final VoxelShape SHAPE_NS_WIDE = box(2, 8, 5, 14, 16, 11);
+  protected static final VoxelShape SHAPE_WE_WIDE = box(5, 8, 2, 11, 16, 14);
+  protected static final VoxelShape SHAPE_CENTER = box(2.5, 8, 2.5, 13.5, 16, 13.5);
+  protected static final VoxelShape CULLING_SHAPE = box(7.5, 0, 7.5, 8.5, 8, 8.5);
+  protected static final VoxelShape BAR_SHAPE = box(6.5, 0, 6.5, 9.5, 8, 9.5);
   public final @Nullable Block baseBlock;
-  public @Nullable Identifier baseTexture, barTexture;
+  public @Nullable ResourceLocation baseTexture, barTexture;
 
-  public StandingSignBlock(@Nullable Block baseBlock, Settings settings) {
+  public StandingSignBlock(@Nullable Block baseBlock, Properties settings) {
     super(settings);
     this.baseBlock = baseBlock;
-    setDefaultState(getDefaultState().with(WATERLOGGED, false).with(ROTATION, 0).with(DOWN, true));
+    registerDefaultState(defaultBlockState().setValue(WATERLOGGED, false).setValue(ROTATION, 0).setValue(DOWN, true));
   }
 
   public StandingSignBlock(@NotNull Block baseBlock) {
-    this(baseBlock, FabricBlockSettings.copyOf(baseBlock));
+    this(baseBlock, BlockBehaviour.Properties.copy(baseBlock).mapColor(baseBlock.defaultMapColor()));
   }
 
   /**
@@ -96,20 +117,20 @@ public class StandingSignBlock extends Block implements BlockEntityProvider, Wat
    */
   @Contract(pure = true)
   public static @Nullable Boolean getHitSide(BlockState blockState, BlockHitResult blockHitResult) {
-    final Direction side = blockHitResult.getSide();
+    final Direction side = blockHitResult.getDirection();
     if (side.getAxis().isVertical()) {
-      final Vec3d pos = blockHitResult.getPos();
-      double minAngle = MathHelper.RADIANS_PER_DEGREE * (360 / 16f * blockState.get(ROTATION));
-      double clickAngle = MathHelper.atan2(MathHelper.floorMod(pos.z, 1) - 0.5, MathHelper.floorMod(pos.x, 1) - 0.5);
-      return (minAngle < clickAngle && clickAngle < minAngle + MathHelper.PI)
-          || (minAngle - 2 * MathHelper.PI < clickAngle && clickAngle < minAngle - MathHelper.PI);
+      final Vec3 pos = blockHitResult.getLocation();
+      double minAngle = Mth.DEG_TO_RAD * (360 / 16f * blockState.getValue(ROTATION));
+      double clickAngle = Mth.atan2(Mth.positiveModulo(pos.z, 1) - 0.5, Mth.positiveModulo(pos.x, 1) - 0.5);
+      return (minAngle < clickAngle && clickAngle < minAngle + Mth.PI)
+          || (minAngle - 2 * Mth.PI < clickAngle && clickAngle < minAngle - Mth.PI);
     }
     return getHitSide(blockState, side);
   }
 
   @Contract(pure = true)
   public static @Nullable Boolean getHitSide(BlockState blockState, Direction side) {
-    final int rotation = blockState.get(ROTATION);
+    final int rotation = blockState.getValue(ROTATION);
     return switch (rotation) {
       case 0 -> switch (side) {
         case NORTH -> Boolean.FALSE;
@@ -155,87 +176,87 @@ public class StandingSignBlock extends Block implements BlockEntityProvider, Wat
     };
   }
 
-  public Identifier getBaseTexture() {
+  public ResourceLocation getBaseTexture() {
     if (baseTexture != null) return baseTexture;
     return ModelHelper.getTextureOf(baseBlock == null ? this : baseBlock);
   }
 
   @Override
-  protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-    super.appendProperties(builder);
+  protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    super.createBlockStateDefinition(builder);
     builder.add(WATERLOGGED, ROTATION, DOWN);
   }
 
   @Override
-  public BlockState getPlacementState(ItemPlacementContext ctx) {
-    final World world = ctx.getWorld();
-    final BlockPos blockPos = ctx.getBlockPos();
+  public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+    final Level world = ctx.getLevel();
+    final BlockPos blockPos = ctx.getClickedPos();
     final BlockState blockState = world.getBlockState(((ItemUsageContextInvoker) ctx).invokeGetHitResult().getBlockPos());
     FluidState fluidState = world.getFluidState(blockPos);
-    return this.getDefaultState()
+    return this.defaultBlockState()
         // 毗邻直立的告示牌放置时，使用相同的方向。
-        .with(ROTATION, blockState.getBlock() instanceof StandingSignBlock ? blockState.get(ROTATION) : MathHelper.floor((double) ((180.0F + ctx.getPlayerYaw()) * 16.0F / 360.0F) + 0.5) & 15)
-        .with(DOWN, world.getBlockState(blockPos.down()).isSideSolid(world, blockPos.down(), Direction.UP, SideShapeType.CENTER))
-        .with(WATERLOGGED, fluidState.getFluid() == Fluids.WATER);
+        .setValue(ROTATION, blockState.getBlock() instanceof StandingSignBlock ? blockState.getValue(ROTATION) : Mth.floor((double) ((180.0F + ctx.getRotation()) * 16.0F / 360.0F) + 0.5) & 15)
+        .setValue(DOWN, world.getBlockState(blockPos.below()).isFaceSturdy(world, blockPos.below(), Direction.UP, SupportType.CENTER))
+        .setValue(WATERLOGGED, fluidState.getType() == Fluids.WATER);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-    if (state.get(WATERLOGGED)) {
-      world.scheduleFluidTick(pos, Fluids.WATER, Fluids.WATER.getTickRate(world));
+  public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+    if (state.getValue(WATERLOGGED)) {
+      world.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(world));
     }
-    final BlockState state1 = super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos);
-    return direction == Direction.DOWN ? state1.with(DOWN, neighborState.isSideSolid(world, neighborPos, Direction.UP, SideShapeType.CENTER)) : state1;
+    final BlockState state1 = super.updateShape(state, direction, neighborState, world, pos, neighborPos);
+    return direction == Direction.DOWN ? state1.setValue(DOWN, neighborState.isFaceSturdy(world, neighborPos, Direction.UP, SupportType.CENTER)) : state1;
   }
 
   @SuppressWarnings("deprecation")
   @Override
   public FluidState getFluidState(BlockState state) {
-    return state.get(WATERLOGGED) ? Fluids.WATER.getStill(false) : super.getFluidState(state);
+    return state.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(state);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState rotate(BlockState state, BlockRotation rotation) {
-    return state.with(ROTATION, rotation.rotate(state.get(ROTATION), 16));
+  public BlockState rotate(BlockState state, Rotation rotation) {
+    return state.setValue(ROTATION, rotation.rotate(state.getValue(ROTATION), 16));
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public BlockState mirror(BlockState state, BlockMirror mirror) {
-    return state.with(ROTATION, mirror.mirror(state.get(ROTATION), 16));
+  public BlockState mirror(BlockState state, Mirror mirror) {
+    return state.setValue(ROTATION, mirror.mirror(state.getValue(ROTATION), 16));
   }
 
   @Override
-  public MutableText getName() {
+  public MutableComponent getName() {
     if (baseBlock != null) return TextBridge.translatable("block.mishanguc.standing_sign", baseBlock.getName());
     return super.getName();
   }
 
   @Override
-  public void appendTooltip(ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
-    super.appendTooltip(stack, world, tooltip, options);
-    tooltip.add(TextBridge.translatable("block.mishanguc.standing_sign.tooltip.1").formatted(Formatting.GRAY));
-    tooltip.add(TextBridge.translatable("block.mishanguc.standing_sign.tooltip.2").formatted(Formatting.GRAY));
+  public void appendHoverText(ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
+    super.appendHoverText(stack, world, tooltip, options);
+    tooltip.add(TextBridge.translatable("block.mishanguc.standing_sign.tooltip.1").withStyle(ChatFormatting.GRAY));
+    tooltip.add(TextBridge.translatable("block.mishanguc.standing_sign.tooltip.2").withStyle(ChatFormatting.GRAY));
   }
 
   @Override
   public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
     final TextureMap textures = TextureMap.texture(getBaseTexture()).put(MishangucTextureKeys.BAR, barTexture);
-    final Identifier modelId = MishangucModels.STANDING_SIGN.upload(this, textures, blockStateModelGenerator.modelCollector);
-    final Identifier r1ModelId = MishangucModels.STANDING_SIGN_1.upload(this, textures, blockStateModelGenerator.modelCollector);
-    final Identifier r2ModelId = MishangucModels.STANDING_SIGN_2.upload(this, textures, blockStateModelGenerator.modelCollector);
-    final Identifier r3ModelId = MishangucModels.STANDING_SIGN_3.upload(this, textures, blockStateModelGenerator.modelCollector);
-    final Identifier barredModelId = MishangucModels.STANDING_SIGN_BARRED.upload(this, textures, blockStateModelGenerator.modelCollector);
-    final Identifier barredR1ModelId = MishangucModels.STANDING_SIGN_BARRED_1.upload(this, textures, blockStateModelGenerator.modelCollector);
-    final Identifier barredR2ModelId = MishangucModels.STANDING_SIGN_BARRED_2.upload(this, textures, blockStateModelGenerator.modelCollector);
-    final Identifier barredR3ModelId = MishangucModels.STANDING_SIGN_BARRED_3.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation modelId = MishangucModels.STANDING_SIGN.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation r1ModelId = MishangucModels.STANDING_SIGN_1.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation r2ModelId = MishangucModels.STANDING_SIGN_2.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation r3ModelId = MishangucModels.STANDING_SIGN_3.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation barredModelId = MishangucModels.STANDING_SIGN_BARRED.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation barredR1ModelId = MishangucModels.STANDING_SIGN_BARRED_1.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation barredR2ModelId = MishangucModels.STANDING_SIGN_BARRED_2.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation barredR3ModelId = MishangucModels.STANDING_SIGN_BARRED_3.upload(this, textures, blockStateModelGenerator.modelCollector);
     blockStateModelGenerator.blockStateCollector.accept(createBlockStates(modelId, r1ModelId, r2ModelId, r3ModelId, barredModelId, barredR1ModelId, barredR2ModelId, barredR3ModelId));
     blockStateModelGenerator.registerParentedItemModel(this, barredModelId);
   }
 
-  public @Nullable BlockStateSupplier createBlockStates(Identifier modelId, Identifier r1ModelId, Identifier r2ModelId, Identifier r3ModelId, Identifier barredModelId, Identifier barredR1ModelId, Identifier barredR2ModelId, Identifier barredR3ModelId) {
+  public @Nullable BlockStateSupplier createBlockStates(ResourceLocation modelId, ResourceLocation r1ModelId, ResourceLocation r2ModelId, ResourceLocation r3ModelId, ResourceLocation barredModelId, ResourceLocation barredR1ModelId, ResourceLocation barredR2ModelId, ResourceLocation barredR3ModelId) {
     final BlockStateVariantMap.DoubleProperty<Boolean, Integer> map = BlockStateVariantMap.create(DOWN, ROTATION);
     for (int i = 0; i < 16; i += 4) {
       final int y = i * 90 / 4;
@@ -265,47 +286,47 @@ public class StandingSignBlock extends Block implements BlockEntityProvider, Wat
   }
 
   @Override
-  public CraftingRecipeJsonBuilder getCraftingRecipe() {
+  public RecipeBuilder getCraftingRecipe() {
     if (baseBlock == null) return null;
-    return ShapedRecipeJsonBuilder.create(RecipeCategory.DECORATIONS, this, 4)
+    return ShapedRecipeBuilder.shaped(RecipeCategory.DECORATIONS, this, 4)
         .pattern("---")
         .pattern("###")
         .pattern(" | ")
-        .input('#', baseBlock).input('-', WallSignBlocks.INVISIBLE_WALL_SIGN).input('|', Items.STICK)
-        .criterion("has_base_block", RecipeProvider.conditionsFromItem(baseBlock))
-        .criterion("has_sign", RecipeProvider.conditionsFromItem(WallSignBlocks.INVISIBLE_WALL_SIGN))
+        .define('#', baseBlock).define('-', WallSignBlocks.INVISIBLE_WALL_SIGN).define('|', Items.STICK)
+        .unlockedBy("has_base_block", FabricRecipeProvider.has(baseBlock))
+        .unlockedBy("has_sign", FabricRecipeProvider.has(WallSignBlocks.INVISIBLE_WALL_SIGN))
         .group(getRecipeGroup());
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-    final VoxelShape bodyShape = switch (state.get(ROTATION)) {
+  public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+    final VoxelShape bodyShape = switch (state.getValue(ROTATION)) {
       case 0, 8 -> SHAPE_NS;
       case 1, 7, 9, 15 -> SHAPE_NS_WIDE;
       case 3, 5, 11, 13 -> SHAPE_WE_WIDE;
       case 4, 12 -> SHAPE_WE;
       default -> SHAPE_CENTER;
     };
-    return state.get(DOWN) ? VoxelShapes.union(bodyShape, BAR_SHAPE) : bodyShape;
+    return state.getValue(DOWN) ? Shapes.or(bodyShape, BAR_SHAPE) : bodyShape;
   }
 
   @Nullable
   @Override
-  public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+  public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
     return new StandingSignBlockEntity(pos, state);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public VoxelShape getCullingShape(BlockState state, BlockView world, BlockPos pos) {
-    return state.get(ROTATION) % 4 == 0 && state.get(DOWN) ? CULLING_SHAPE : VoxelShapes.empty();
+  public VoxelShape getOcclusionShape(BlockState state, BlockGetter world, BlockPos pos) {
+    return state.getValue(ROTATION) % 4 == 0 && state.getValue(DOWN) ? CULLING_SHAPE : Shapes.empty();
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public VoxelShape getCollisionShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-    return VoxelShapes.empty();
+  public VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+    return Shapes.empty();
   }
 
   /**
@@ -313,14 +334,14 @@ public class StandingSignBlock extends Block implements BlockEntityProvider, Wat
    */
   @SuppressWarnings("deprecation")
   @Override
-  public boolean isSideInvisible(BlockState state, BlockState stateFrom, Direction direction) {
+  public boolean skipRendering(BlockState state, BlockState stateFrom, Direction direction) {
     if (direction.getAxis().isHorizontal() && stateFrom.getBlock() instanceof StandingSignBlock standingSignBlockFrom) {
-      final int r1 = state.get(ROTATION);
-      final int r2 = stateFrom.get(ROTATION);
+      final int r1 = state.getValue(ROTATION);
+      final int r2 = stateFrom.getValue(ROTATION);
       if ((r1 - r2) % 8 == 0) {
         if (direction.getAxis() == Direction.Axis.X && (r1 == 0 || r1 == 8) || direction.getAxis() == Direction.Axis.Z && (r1 == 4 || r1 == 12)) {
-          if (standingSignBlockFrom.baseBlock instanceof TransparentBlock) {
-            if (baseBlock instanceof TransparentBlock) {
+          if (standingSignBlockFrom.baseBlock instanceof HalfTransparentBlock) {
+            if (baseBlock instanceof HalfTransparentBlock) {
               // 自身和相邻方块都为透明方块，则双方均为同一方块时隐藏。
               return baseBlock == standingSignBlockFrom.baseBlock;
             } else {
@@ -331,93 +352,93 @@ public class StandingSignBlock extends Block implements BlockEntityProvider, Wat
         }
       }
     }
-    return super.isSideInvisible(state, stateFrom, direction);
+    return super.skipRendering(state, stateFrom, direction);
   }
 
   @SuppressWarnings("deprecation")
   @Override
-  public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-    final ActionResult actionResult = super.onUse(state, world, pos, player, hand, hit);
-    if (actionResult.isAccepted()) {
+  public InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    final InteractionResult actionResult = super.use(state, world, pos, player, hand, hit);
+    if (actionResult.consumesAction()) {
       return actionResult;
     }
 
     final BlockEntity blockEntity = world.getBlockEntity(pos);
     final Boolean isFront = getHitSide(state, hit);
-    if (!(blockEntity instanceof StandingSignBlockEntity entity)) return ActionResult.PASS;
-    else if (player.isSneaking()) {
+    if (!(blockEntity instanceof StandingSignBlockEntity entity)) return InteractionResult.PASS;
+    else if (player.isShiftKeyDown()) {
       // 潜行时点击告示牌，可以切换底部杆子的显示。
-      world.setBlockState(pos, state.with(DOWN, !state.get(DOWN)));
-      return ActionResult.SUCCESS;
-    } else if (isFront == null) return ActionResult.PASS;
-    else if (!player.getAbilities().allowModifyWorld) {
+      world.setBlockAndUpdate(pos, state.setValue(DOWN, !state.getValue(DOWN)));
+      return InteractionResult.SUCCESS;
+    } else if (isFront == null) return InteractionResult.PASS;
+    else if (!player.getAbilities().mayBuild) {
       // 冒险模式玩家无权编辑。Adventure players have no permission to edit.
-      return ActionResult.FAIL;
-    } else if (world.isClient) {
-      return ActionResult.SUCCESS;
+      return InteractionResult.FAIL;
+    } else if (world.isClientSide) {
+      return InteractionResult.SUCCESS;
     } else {
-      final ItemStack stackInHand = player.getStackInHand(hand);
+      final ItemStack stackInHand = player.getItemInHand(hand);
       if (stackInHand.getItem() instanceof HoneycombItem) {
         // 处理告示牌的涂蜡。
         if (!entity.waxed.contains(isFront)) {
           entity.waxed = addToSet(entity.waxed, isFront);
-          player.sendMessage(BlockEntityWithText.MESSAGE_WAX_ON, true);
-          world.syncWorldEvent(null, WorldEvents.BLOCK_WAXED, entity.getPos(), 0);
+          player.displayClientMessage(BlockEntityWithText.MESSAGE_WAX_ON, true);
+          world.levelEvent(null, 3003, entity.getBlockPos(), 0);
           entity.markDirtyAndUpdate();
-          if (!player.isCreative()) stackInHand.decrement(1);
-          return ActionResult.SUCCESS;
+          if (!player.isCreative()) stackInHand.shrink(1);
+          return InteractionResult.SUCCESS;
         } else if (player.isCreative()) {
           entity.waxed = removeFromSet(entity.waxed, isFront);
-          player.sendMessage(BlockEntityWithText.MESSAGE_WAX_OFF, true);
-          world.syncWorldEvent(null, WorldEvents.WAX_REMOVED, entity.getPos(), 0);
+          player.displayClientMessage(BlockEntityWithText.MESSAGE_WAX_OFF, true);
+          world.levelEvent(null, 3004, entity.getBlockPos(), 0);
           entity.markDirtyAndUpdate();
-          return ActionResult.SUCCESS;
+          return InteractionResult.SUCCESS;
         }
       }
       if (entity.waxed.contains(isFront)) {
         // 涂蜡的告示牌不应该进行操作。
-        world.playSound(null, entity.getPos(), SoundEvents.BLOCK_SIGN_WAXED_INTERACT_FAIL, SoundCategory.BLOCKS);
-        return ActionResult.PASS;
-      } else if (stackInHand.isOf(Items.MAGMA_CREAM)) {
+        world.playSound(null, entity.getBlockPos(), SoundEvents.WAXED_SIGN_INTERACT_FAIL, SoundSource.BLOCKS);
+        return InteractionResult.PASS;
+      } else if (stackInHand.is(Items.MAGMA_CREAM)) {
         // 玩家手持岩浆膏时，可快速进行重整。
         MishangUtils.rearrange(entity.getTextsOnSide(isFront));
         entity.markDirtyAndUpdate();
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
       } else if (stackInHand.getItem() instanceof GlowInkSacItem) {
         if (!entity.glowing.contains(isFront)) {
           entity.glowing = addToSet(entity.glowing, isFront);
-          player.sendMessage(BlockEntityWithText.MESSAGE_GLOW_ON, true);
-          world.playSound(null, entity.getPos(), SoundEvents.ITEM_GLOW_INK_SAC_USE, SoundCategory.BLOCKS, 1.0F, 1.0F);
+          player.displayClientMessage(BlockEntityWithText.MESSAGE_GLOW_ON, true);
+          world.playSound(null, entity.getBlockPos(), SoundEvents.GLOW_INK_SAC_USE, SoundSource.BLOCKS, 1.0F, 1.0F);
           entity.markDirtyAndUpdate();
-          if (!player.isCreative()) stackInHand.decrement(1);
-          return ActionResult.SUCCESS;
+          if (!player.isCreative()) stackInHand.shrink(1);
+          return InteractionResult.SUCCESS;
         }
       } else if (stackInHand.getItem() instanceof InkSacItem) {
         if (entity.glowing.contains(isFront)) {
           entity.glowing = removeFromSet(entity.glowing, isFront);
-          player.sendMessage(BlockEntityWithText.MESSAGE_GLOW_OFF, true);
-          world.playSound(null, entity.getPos(), SoundEvents.ITEM_INK_SAC_USE, SoundCategory.BLOCKS, 1.0F, 1.0F);
+          player.displayClientMessage(BlockEntityWithText.MESSAGE_GLOW_OFF, true);
+          world.playSound(null, entity.getBlockPos(), SoundEvents.INK_SAC_USE, SoundSource.BLOCKS, 1.0F, 1.0F);
           entity.markDirtyAndUpdate();
-          if (!player.isCreative()) stackInHand.decrement(1);
-          return ActionResult.SUCCESS;
+          if (!player.isCreative()) stackInHand.shrink(1);
+          return InteractionResult.SUCCESS;
         }
       }
     }
 
     entity.checkEditorValidity();
-    final PlayerEntity editor = entity.getEditor();
+    final Player editor = entity.getEditor();
     if (editor != null && editor != player) {
       // 这种情况下，告示牌被占用，玩家无权编辑。
-      player.sendMessage(TextBridge.translatable("message.mishanguc.no_editing_permission.occupied", editor.getName()), false);
-      return ActionResult.FAIL;
+      player.displayClientMessage(TextBridge.translatable("message.mishanguc.no_editing_permission.occupied", editor.getName()), false);
+      return InteractionResult.FAIL;
     }
     entity.editedSide = isFront;
     entity.setEditor(player);
     ServerPlayNetworking.send(
-        ((ServerPlayerEntity) player),
-        new Identifier("mishanguc", "edit_sign"),
+        ((ServerPlayer) player),
+        new ResourceLocation("mishanguc", "edit_sign"),
         Util.make(PacketByteBufs.create(), packet -> packet.writeBlockPos(pos).writeBlockHitResult(hit)));
-    return ActionResult.SUCCESS;
+    return InteractionResult.SUCCESS;
   }
 
   private static BooleanSet addToSet(BooleanSet set, boolean element) {

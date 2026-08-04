@@ -1,30 +1,38 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.LeveledCauldronBlock;
-import net.minecraft.block.cauldron.CauldronBehavior;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.data.client.BlockStateModelGenerator;
-import net.minecraft.data.client.BlockStateSupplier;
-import net.minecraft.data.client.TextureKey;
-import net.minecraft.data.client.TextureMap;
-import net.minecraft.data.server.recipe.CraftingRecipeJsonBuilder;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemConvertible;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.state.StateManager;
-import net.minecraft.text.Text;
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.LayeredCauldronBlock;
+import net.minecraft.core.cauldron.CauldronInteraction;
+import net.minecraft.world.item.TooltipFlag;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+// TODO: Forge data gen - BlockStateModelGenerator
+import pers.solid.mishang.uc.data.stubs.BlockStateSupplier;
+import pers.solid.mishang.uc.data.stubs.TextureKey;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import net.minecraft.data.recipes.RecipeBuilder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.*;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
@@ -54,11 +62,11 @@ public interface Road extends MishangucBlock {
   }
 
   /**
-   * 实现此接口的类，应当覆盖 <code>appendProperties</code> 并使用此方法。
+   * 实现此接口的类，应当覆盖 <code>createBlockStateDefinition</code> 并使用此方法。
    *
-   * @param builder <code>appendProperties</code> 方法中的 builder。
+   * @param builder <code>createBlockStateDefinition</code> 方法中的 builder。
    */
-  default void appendRoadProperties(StateManager.Builder<Block, BlockState> builder) {
+  default void appendRoadProperties(StateDefinition.Builder<Block, BlockState> builder) {
   }
 
   /**
@@ -68,7 +76,7 @@ public interface Road extends MishangucBlock {
    * @param mirror <code>mirror</code> 中的 mirror。
    * @return 镜像后的方块状态。
    */
-  default BlockState mirrorRoad(BlockState state, BlockMirror mirror) {
+  default BlockState mirrorRoad(BlockState state, Mirror mirror) {
     return state;
   }
 
@@ -79,29 +87,29 @@ public interface Road extends MishangucBlock {
    * @param rotation <code>rotate</code> 中的 rotation。
    * @return 旋转后的方块状态。
    */
-  default BlockState rotateRoad(BlockState state, BlockRotation rotation) {
+  default BlockState rotateRoad(BlockState state, Rotation rotation) {
     return state;
   }
 
   /**
-   * 追加放置状态。 实现此接口的类，应当覆盖 <code>getPlacementState</code> 并使用此方法。
+   * 追加放置状态。 实现此接口的类，应当覆盖 <code>getStateForPlacement</code> 并使用此方法。
    *
-   * @param state 需要被修改的方块状态，一般是 <code>super.getPlacementState(ctx)</code> 或者 <code>
+   * @param state 需要被修改的方块状态，一般是 <code>super.getStateForPlacement(ctx)</code> 或者 <code>
    *              this.getDefaultState</code>（其中 this 是方块）。
-   * @param ctx   <code>getPlacementState</code> 中的 ctx。
+   * @param ctx   <code>getStateForPlacement</code> 中的 ctx。
    * @return 追加后的方块状态。
    */
-  default BlockState withPlacementState(BlockState state, ItemPlacementContext ctx) {
+  default BlockState withPlacementState(BlockState state, BlockPlaceContext ctx) {
     return state;
   }
 
   /**
-   * 处理方块更新。实现此接口的类，应该覆盖 {@link Block#getStateForNeighborUpdate} 并使用此方法。
+   * 处理方块更新。实现此接口的类，应该覆盖 {@link Block#updateShape} 并使用此方法。
    *
    * @since 0.2.4
    */
   @ApiStatus.AvailableSince("0.2.4")
-  default BlockState withStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
+  default BlockState withStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
     return state;
   }
 
@@ -116,8 +124,8 @@ public interface Road extends MishangucBlock {
    * @param hit    玩家使用道路时的碰撞结果。
    * @return 行为结果。
    */
-  default ActionResult onUseRoad(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-    return ActionResult.PASS;
+  default InteractionResult onUseRoad(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    return InteractionResult.PASS;
   }
 
   /**
@@ -129,31 +137,31 @@ public interface Road extends MishangucBlock {
    * @param sourceBlock 方块。
    * @param sourcePos   导致触发方块更新的方块。
    * @param notify      一个布尔值。
-   * @see AbstractRoadBlock#neighborUpdate
-   * @see AbstractRoadSlabBlock#neighborUpdate
-   * @see Block#neighborUpdate
-   * @see BlockState#neighborUpdate
+   * @see AbstractRoadBlock#neighborChanged
+   * @see AbstractRoadSlabBlock#neighborChanged
+   * @see Block#neighborChanged
+   * @see BlockState#neighborChanged
    */
   @SuppressWarnings("deprecation")
   default void neighborRoadUpdate(
-      BlockState state, World world, BlockPos pos, Block sourceBlock, BlockPos sourcePos, boolean notify) {
+      BlockState state, Level world, BlockPos pos, Block sourceBlock, BlockPos sourcePos, boolean notify) {
   }
 
   /**
    * 在物品栏中为该道路添加提示信息。<br>
-   * 对于 1.16.5 之前的版本，子类覆盖此方法时，必须注解为 {@code @Environment(EnvType.CLIENT)}。<br>
-   * 新版本中，由于 {@link Block#appendTooltip(ItemStack, BlockView, List, TooltipContext)} 没有再被注解，故此方法也无需再被注解。
+   * 对于 1.16.5 之前的版本，子类覆盖此方法时，必须注解为 {@code @OnlyIn(Dist.CLIENT)}。<br>
+   * 新版本中，由于 {@link Block#appendHoverText(ItemStack, BlockGetter, List, TooltipFlag)} 没有再被注解，故此方法也无需再被注解。
    *
    * @param stack   物品堆。
    * @param world   世界。
    * @param tooltip 提示文字。
    * @param options 提示选项。
    * @see AbstractRoadBlock#appendRoadTooltip
-   * @see AbstractRoadSlabBlock#appendTooltip
-   * @see Block#appendTooltip
+   * @see AbstractRoadSlabBlock#appendHoverText
+   * @see Block#appendHoverText
    */
   default void appendRoadTooltip(
-      ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
+      ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
   }
 
   LineColor getLineColor(BlockState blockState, Direction direction);
@@ -164,43 +172,43 @@ public interface Road extends MishangucBlock {
    * 给道路添加描述性内容，这部分文本通常是蓝色的。
    */
   @ApiStatus.AvailableSince("0.2.4")
-  void appendDescriptionTooltip(List<Text> tooltip, TooltipContext options);
+  void appendDescriptionTooltip(List<Component> tooltip, TooltipFlag options);
 
-  default CraftingRecipeJsonBuilder getPaintingRecipe(Block base, Block self) {
+  default RecipeBuilder getPaintingRecipe(Block base, Block self) {
     return null;
   }
 
-  default Identifier getPaintingRecipeId() {
-    return CraftingRecipeJsonBuilder.getItemId((ItemConvertible) this).withSuffixedPath("_from_painting");
+  default ResourceLocation getPaintingRecipeId() {
+    return FabricRecipeProvider.getConversionRecipeName((ItemLike) this).withSuffix("_from_painting");
   }
 
   default @Nullable String getRecipeGroup() {
-    final Identifier itemId = Registries.ITEM.getId(((ItemConvertible) this).asItem());
+    final ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(((ItemLike) this).asItem());
     return itemId.getNamespace() + ":" + StringUtils.replaceEach(itemId.getPath(), new String[]{"_white_", "_yellow_", "_w_", "_y_"}, new String[]{"_", "_", "_", "_"});
   }
 
-  CauldronBehavior CLEAN_ROAD_BLOCK = (state, world, pos, player, hand, stack) -> {
+  CauldronInteraction CLEAN_ROAD_BLOCK = (state, world, pos, player, hand, stack) -> {
     if (stack.getItem() instanceof BlockItem blockItem) {
       final Block block = blockItem.getBlock();
       if ((block instanceof AbstractRoadBlock || block instanceof AbstractRoadSlabBlock) && block != RoadBlocks.ROAD_BLOCK && block != RoadBlocks.ROAD_BLOCK.getRoadSlab()) {
-        if (!world.isClient) {
-          if (!player.getAbilities().creativeMode) {
-            stack.decrement(1);
+        if (!world.isClientSide) {
+          if (!player.getAbilities().instabuild) {
+            stack.shrink(1);
           }
           final ItemStack itemStack = block instanceof AbstractRoadSlabBlock ? new ItemStack(RoadBlocks.ROAD_BLOCK.getRoadSlab()) : new ItemStack(RoadBlocks.ROAD_BLOCK);
           if (stack.isEmpty()) {
-            player.setStackInHand(hand, itemStack);
-          } else if (player.getInventory().insertStack(itemStack)) {
-            player.playerScreenHandler.syncState();
+            player.setItemInHand(hand, itemStack);
+          } else if (player.getInventory().add(itemStack)) {
+            player.containerMenu.broadcastChanges();
           } else {
-            player.dropItem(itemStack, false);
+            player.drop(itemStack, false);
           }
-          LeveledCauldronBlock.decrementFluidLevel(state, world, pos);
+          LayeredCauldronBlock.lowerFillLevel(state, world, pos);
         }
-        return ActionResult.success(world.isClient);
+        return InteractionResult.sidedSuccess(world.isClientSide);
       }
     }
-    return ActionResult.PASS;
+    return InteractionResult.PASS;
   };
 
   /**
@@ -213,14 +221,14 @@ public interface Road extends MishangucBlock {
    *
    * @return 生成的方块模型的 ID。如果是台阶方块，则是下半台阶方块的 ID。
    */
-  Identifier uploadModel(String suffix, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys);
+  ResourceLocation uploadModel(String suffix, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys);
 
   /**
    * 生成方块的模型。如果此方块是台阶方块，则生成下半和上半台阶方块的模型，共两个模型，其中返回下半台阶方块的模型的 ID。
    *
    * @return 生成的方块模型的 ID。如果是台阶方块，则是下半台阶方块的 ID。
    */
-  Identifier uploadModel(String suffix, String variant, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys);
+  ResourceLocation uploadModel(String suffix, String variant, TextureMap textureMap, BlockStateModelGenerator blockStateModelGenerator, TextureKey... textureKeys);
 
   /**
    * 对于道路方块，直接返回 {@code stateForFull}。对于道路台阶方块，会将其转化为台阶的方块状态再返回。

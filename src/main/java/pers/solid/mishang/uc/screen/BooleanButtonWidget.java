@@ -1,16 +1,16 @@
 package pers.solid.mishang.uc.screen;
 
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.screen.narration.NarrationPart;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.narration.NarratedElementType;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.util.TextBridge;
@@ -21,8 +21,8 @@ import java.util.function.Supplier;
 /**
  * 用于处理布尔值的按钮。按下鼠标时切换。
  */
-@Environment(EnvType.CLIENT)
-public class BooleanButtonWidget extends ButtonWidget implements TooltipUpdated {
+@OnlyIn(Dist.CLIENT)
+public class BooleanButtonWidget extends Button implements TooltipUpdated {
   public final boolean defaultValue = false;
 
   /**
@@ -31,10 +31,10 @@ public class BooleanButtonWidget extends ButtonWidget implements TooltipUpdated 
   private final Function<BooleanButtonWidget, @Nullable Boolean> valueGetter;
 
   private final BooleanConsumer valueSetter;
-  public Function<@Nullable Boolean, Text> renderedNameSupplier = null;
-  public @Nullable Function<@Nullable Boolean, @Nullable Text> tooltipSupplier = null;
-  public @Nullable Text keyboardShortcut = null;
-  private Supplier<Text> summaryTextSupplier = null;
+  public Function<@Nullable Boolean, Component> renderedNameSupplier = null;
+  public @Nullable Function<@Nullable Boolean, @Nullable Component> tooltipSupplier = null;
+  public @Nullable Component keyboardShortcut = null;
+  private Supplier<Component> summaryTextSupplier = null;
 
   /**
    * 用于布尔值的按钮。
@@ -48,63 +48,63 @@ public class BooleanButtonWidget extends ButtonWidget implements TooltipUpdated 
    * @param valueSetter 如何设置布尔值？
    * @param onPress     按钮按下去的反应。通常为空。
    */
-  public BooleanButtonWidget(int x, int y, int width, int height, Text message, Function<BooleanButtonWidget, @Nullable Boolean> valueGetter, BooleanConsumer valueSetter, PressAction onPress) {
-    super(x, y, width, height, message, onPress, ButtonWidget.DEFAULT_NARRATION_SUPPLIER);
+  public BooleanButtonWidget(int x, int y, int width, int height, Component message, Function<BooleanButtonWidget, @Nullable Boolean> valueGetter, BooleanConsumer valueSetter, OnPress onPress) {
+    super(x, y, width, height, message, onPress, Button.DEFAULT_NARRATION);
     this.valueGetter = valueGetter;
     this.valueSetter = valueSetter;
     updateTooltip();
   }
 
-  public BooleanButtonWidget setSummaryTextSupplier(Supplier<Text> summaryTextSupplier) {
+  public BooleanButtonWidget setSummaryTextSupplier(Supplier<Component> summaryTextSupplier) {
     this.summaryTextSupplier = summaryTextSupplier;
     return this;
   }
 
-  public BooleanButtonWidget setRenderedNameSupplier(Function<@Nullable Boolean, Text> renderedNameSupplier) {
+  public BooleanButtonWidget setRenderedNameSupplier(Function<@Nullable Boolean, Component> renderedNameSupplier) {
     this.renderedNameSupplier = renderedNameSupplier;
     return this;
   }
 
-  public BooleanButtonWidget setRenderedName(Text renderedName) {
+  public BooleanButtonWidget setRenderedName(Component renderedName) {
     this.renderedNameSupplier = ignore -> renderedName;
     return this;
   }
 
-  public BooleanButtonWidget setTooltipSupplier(Function<@Nullable Boolean, @Nullable Text> tooltipSupplier) {
+  public BooleanButtonWidget setTooltipSupplier(Function<@Nullable Boolean, @Nullable Component> tooltipSupplier) {
     this.tooltipSupplier = tooltipSupplier;
     return this;
   }
 
-  public BooleanButtonWidget setTooltip(Text tooltip) {
+  public BooleanButtonWidget setTooltip(Component tooltip) {
     this.tooltipSupplier = ignore -> tooltip;
     return this;
   }
 
-  public BooleanButtonWidget setKeyboardShortcut(Text text) {
+  public BooleanButtonWidget setKeyboardShortcut(Component text) {
     this.keyboardShortcut = text;
     return this;
   }
 
-  public Text getSummaryMessage() {
+  public Component getSummaryMessage() {
     return summaryTextSupplier == null ? super.getMessage() : summaryTextSupplier.get(); // 忽略 renderMessage
   }
 
   @Override
   public void updateTooltip() {
     final Boolean value = getValue();
-    final Text tooltip = tooltipSupplier == null ? null : tooltipSupplier.apply(value);
-    final MutableText content = value == null ? TextBridge.empty().append(getSummaryMessage()) : ScreenTexts.composeToggleText(getSummaryMessage(), value);
-    final MutableText narration = value == null ? TextBridge.empty() : TextBridge.translatable("narration.mishanguc.button.current_value", value ? ScreenTexts.ON : ScreenTexts.OFF);
+    final Component tooltip = tooltipSupplier == null ? null : tooltipSupplier.apply(value);
+    final MutableComponent content = value == null ? TextBridge.empty().append(getSummaryMessage()) : CommonComponents.optionStatus(getSummaryMessage(), value);
+    final MutableComponent narration = value == null ? TextBridge.empty() : TextBridge.translatable("narration.mishanguc.button.current_value", value ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF);
     if (tooltip != null) {
-      content.append(ScreenTexts.LINE_BREAK).append(tooltip);
-      narration.append(ScreenTexts.LINE_BREAK).append(tooltip);
+      content.append(CommonComponents.NEW_LINE).append(tooltip);
+      narration.append(CommonComponents.NEW_LINE).append(tooltip);
     }
     if (keyboardShortcut != null) {
-      MutableText composed = MishangUtils.describeShortcut(keyboardShortcut);
-      content.append(ScreenTexts.LINE_BREAK).append(composed);
-      narration.append(ScreenTexts.LINE_BREAK).append(composed);
+      MutableComponent composed = MishangUtils.describeShortcut(keyboardShortcut);
+      content.append(CommonComponents.NEW_LINE).append(composed);
+      narration.append(CommonComponents.NEW_LINE).append(composed);
     }
-    setTooltip(Tooltip.of(content, narration));
+    setTooltip(Tooltip.create(content, narration));
   }
 
   public @Nullable Boolean getValue() {
@@ -119,7 +119,7 @@ public class BooleanButtonWidget extends ButtonWidget implements TooltipUpdated 
   @Override
   public boolean mouseClicked(double mouseX, double mouseY, int button) {
     if (this.active && this.visible && clicked(mouseX, mouseY) && button == 2) {
-      this.playDownSound(MinecraftClient.getInstance().getSoundManager());
+      this.playDownSound(Minecraft.getInstance().getSoundManager());
       setValue(defaultValue);
       return true;
     } else {
@@ -152,29 +152,29 @@ public class BooleanButtonWidget extends ButtonWidget implements TooltipUpdated 
   }
 
   @Override
-  public Text getMessage() {
-    final Text renderedName = renderedNameSupplier == null ? super.getMessage() : renderedNameSupplier.apply(getValue());
+  public Component getMessage() {
+    final Component renderedName = renderedNameSupplier == null ? super.getMessage() : renderedNameSupplier.apply(getValue());
     final @Nullable Boolean value = getValue();
     return value == null
         ? renderedName
         : TextBridge.empty()
         .append(renderedName)
-        .styled(style -> style.withColor(value ? 0xb2ff96 : 0xffac96));
+        .withStyle(style -> style.withColor(value ? 0xb2ff96 : 0xffac96));
   }
 
   @Override
-  protected MutableText getNarrationMessage() {
+  protected MutableComponent createNarrationMessage() {
     // 考虑到部分按钮，比如加粗按钮，显示时只显示“B”，但是事实上复述功能应该复述“加粗”。
-    return getNarrationMessage(getSummaryMessage());
+    return wrapDefaultNarrationMessage(getSummaryMessage());
   }
 
   @Override
-  protected void appendDefaultNarrations(NarrationMessageBuilder builder) {
-    super.appendDefaultNarrations(builder);
+  public void updateWidgetNarration(NarrationElementOutput builder) {
+    super.updateWidgetNarration(builder);
     if (getValue() == null) {
-      builder.put(NarrationPart.USAGE, TextBridge.translatable("narration.mishanguc.button.null"));
+      builder.add(NarratedElementType.USAGE, TextBridge.translatable("narration.mishanguc.button.null"));
     } else {
-      builder.put(NarrationPart.USAGE, TextBridge.translatable("narration.mishanguc.button.boolean_usage"));
+      builder.add(NarratedElementType.USAGE, TextBridge.translatable("narration.mishanguc.button.boolean_usage"));
     }
   }
 

@@ -2,32 +2,33 @@ package pers.solid.mishang.uc.util;
 
 import com.google.common.collect.Sets;
 import com.mojang.serialization.Lifecycle;
-import net.minecraft.block.BlockState;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.SimpleRegistry;
-import net.minecraft.text.MutableText;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.StringIdentifiable;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.MappedRegistry;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.StringRepresentable;
+import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.Mishanguc;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
+import com.mojang.math.Axis;
 
 /**
  * 一个方块匹配规则，根据该规则来匹配两个方块是否匹配。
  */
-public abstract class BlockMatchingRule implements StringIdentifiable {
-  protected static final RegistryKey<Registry<BlockMatchingRule>> REGISTRY_KEY =
-      RegistryKey.ofRegistry(Mishanguc.id("block_matching_rule"));
-  public static final SimpleRegistry<BlockMatchingRule> REGISTRY =
-      new SimpleRegistry<>(REGISTRY_KEY, Lifecycle.stable());
+public abstract class BlockMatchingRule implements StringRepresentable {
+  protected static final ResourceKey<Registry<BlockMatchingRule>> REGISTRY_KEY =
+      ResourceKey.createRegistryKey(Mishanguc.id("block_matching_rule"));
+  public static final MappedRegistry<BlockMatchingRule> REGISTRY =
+      new MappedRegistry<>(REGISTRY_KEY, Lifecycle.stable());
   public static final BlockMatchingRule SAME_STATE =
       new BlockMatchingRule() {
         @Override
@@ -47,7 +48,7 @@ public abstract class BlockMatchingRule implements StringIdentifiable {
         @Override
         public boolean match(@NotNull BlockState state1, @NotNull BlockState state2) {
           // 仅限于 1.20 的临时解决方案
-          return state1.getSoundGroup() == state2.getSoundGroup() && state1.isAir() == state2.isAir();
+          return state1.getSoundType() == state2.getSoundType() && state1.isAir() == state2.isAir();
         }
       }.register("same_material");
   public static final BlockMatchingRule ANY =
@@ -59,18 +60,18 @@ public abstract class BlockMatchingRule implements StringIdentifiable {
       }.register("any");
 
   public static @Nullable BlockMatchingRule fromString(String name) {
-    return REGISTRY.get(new Identifier(name));
+    return REGISTRY.get(new ResourceLocation(name));
   }
 
   public abstract boolean match(@NotNull BlockState state1, @NotNull BlockState state2);
 
-  public BlockMatchingRule register(Identifier identifier) {
+  public BlockMatchingRule register(ResourceLocation identifier) {
     return Registry.register(REGISTRY, identifier, this);
   }
 
   @Override
-  public @Nullable String asString() {
-    final @Nullable Identifier id = REGISTRY.getId(this);
+  public @Nullable String getSerializedName() {
+    final @Nullable ResourceLocation id = REGISTRY.getKey(this);
     return id == null ? null : id.toString();
   }
 
@@ -84,12 +85,12 @@ public abstract class BlockMatchingRule implements StringIdentifiable {
   /**
    * 获取该方块匹配规则注册表中的 id。
    */
-  public Identifier getId() {
-    return REGISTRY.getId(this);
+  public ResourceLocation getId() {
+    return REGISTRY.getKey(this);
   }
 
-  public MutableText getName() {
-    return TextBridge.translatable(Util.createTranslationKey("blockMatchingRule", REGISTRY.getId(this)));
+  public MutableComponent getName() {
+    return TextBridge.translatable(Util.makeDescriptionId("blockMatchingRule", REGISTRY.getKey(this)));
   }
 
   /**
@@ -102,34 +103,36 @@ public abstract class BlockMatchingRule implements StringIdentifiable {
    * @return 包含这些坐标的链式集合。
    */
   public Set<BlockPos> getPlainValidBlockPoss(
-      @NotNull World world, @NotNull BlockPos centerPos, @NotNull Direction side, int range) {
+      @NotNull Level world, @NotNull BlockPos centerPos, @NotNull Direction side, int range) {
     final LinkedHashSet<BlockPos> set = Sets.newLinkedHashSet();
     final Direction.Axis axis = side.getAxis();
-    for (BlockPos pos : BlockPos.iterateOutwards(
-        centerPos,
-        axis == Direction.Axis.X ? 0 : range,
-        axis == Direction.Axis.Y ? 0 : range,
-        axis == Direction.Axis.Z ? 0 : range)) {
-      final BlockPos offsetPos = pos.offset(side);
+    final int rx = axis == Direction.Axis.X ? 0 : range;
+    final int ry = axis == Direction.Axis.Y ? 0 : range;
+    final int rz = axis == Direction.Axis.Z ? 0 : range;
+    for (BlockPos pos : BlockPos.betweenClosed(
+        centerPos.offset(-rx, -ry, -rz),
+        centerPos.offset(rx, ry, rz))) {
+      final BlockPos offsetPos = pos.relative(side);
       final boolean isValid = world
           .getBlockState(offsetPos)
           .getCollisionShape(world, pos)
-          .getFace(side.getOpposite())
+          .getFaceShape(side.getOpposite())
           .isEmpty();
       if (!isValid || !this.match(world.getBlockState(pos), world.getBlockState(centerPos))) {
         continue;
       }
       if (pos.equals(centerPos)) {
-        set.add(pos.toImmutable());
+        set.add(pos.immutable());
         continue;
       }
-      for (BlockPos pos1 : BlockPos.iterateOutwards(
-          pos,
-          axis == Direction.Axis.X ? 0 : 1,
-          axis == Direction.Axis.Y ? 0 : 1,
-          axis == Direction.Axis.Z ? 0 : 1)) {
-        if (set.contains(pos1.toImmutable())) {
-          set.add(pos.toImmutable());
+      final int dx = axis == Direction.Axis.X ? 0 : 1;
+      final int dy = axis == Direction.Axis.Y ? 0 : 1;
+      final int dz = axis == Direction.Axis.Z ? 0 : 1;
+      for (BlockPos pos1 : BlockPos.betweenClosed(
+          pos.offset(-dx, -dy, -dz),
+          pos.offset(dx, dy, dz))) {
+        if (set.contains(pos1.immutable())) {
+          set.add(pos.immutable());
         }
       }
     }

@@ -4,15 +4,15 @@ import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.booleans.BooleanArraySet;
 import it.unimi.dsi.fastutil.booleans.BooleanSet;
 import it.unimi.dsi.fastutil.booleans.BooleanSets;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.*;
 import pers.solid.mishang.uc.text.TextContext;
 
@@ -41,7 +41,7 @@ public class StandingSignBlockEntity extends BlockEntityWithText {
   /**
    * 正在编辑该告示牌的玩家。
    */
-  private @Nullable PlayerEntity editor;
+  private @Nullable Player editor;
   /**
    * 告示牌被编辑的那一侧。{@code true} 表示 front，{@code false} 表示 back，{@code null} 表示未被编辑。
    */
@@ -59,18 +59,18 @@ public class StandingSignBlockEntity extends BlockEntityWithText {
   }
 
   @Override
-  public void readNbt(NbtCompound nbt) {
-    super.readNbt(nbt);
-    final NbtElement nbtFrontTexts = nbt.get("frontTexts");
-    if (nbtFrontTexts instanceof NbtList nbtList) {
+  public void load(CompoundTag nbt) {
+    super.load(nbt);
+    final Tag nbtFrontTexts = nbt.get("frontTexts");
+    if (nbtFrontTexts instanceof ListTag nbtList) {
       frontTexts = nbtList.stream()
           .map(nbtElement -> TextContext.fromNbt(nbtElement, createDefaultTextContext()))
           .collect(ImmutableList.toImmutableList());
     } else {
       frontTexts = ImmutableList.of(TextContext.fromNbt(nbtFrontTexts, createDefaultTextContext()));
     }
-    final NbtElement nbtBackTexts = nbt.get("backTexts");
-    if (nbtBackTexts instanceof NbtList nbtList) {
+    final Tag nbtBackTexts = nbt.get("backTexts");
+    if (nbtBackTexts instanceof ListTag nbtList) {
       backTexts = nbtList.stream()
           .map(nbtElement -> TextContext.fromNbt(nbtElement, createDefaultTextContext()))
           .collect(ImmutableList.toImmutableList());
@@ -98,19 +98,19 @@ public class StandingSignBlockEntity extends BlockEntityWithText {
   }
 
   @Override
-  protected void writeNbt(NbtCompound nbt) {
-    super.writeNbt(nbt);
+  protected void saveAdditional(CompoundTag nbt) {
+    super.saveAdditional(nbt);
     if (frontTexts.size() == 1) {
       nbt.put("frontTexts", frontTexts.get(0).createNbt());
     } else {
-      final NbtList nbtList = new NbtList();
+      final ListTag nbtList = new ListTag();
       frontTexts.forEach(textContext -> nbtList.add(textContext.createNbt()));
       nbt.put("frontTexts", nbtList);
     }
     if (backTexts.size() == 1) {
       nbt.put("backTexts", backTexts.get(0).createNbt());
     } else {
-      final NbtList nbtList = new NbtList();
+      final ListTag nbtList = new ListTag();
       backTexts.forEach(textContext -> nbtList.add(textContext.createNbt()));
       nbt.put("backTexts", nbtList);
     }
@@ -131,17 +131,17 @@ public class StandingSignBlockEntity extends BlockEntityWithText {
   }
 
   @Override
-  public @Nullable PlayerEntity getEditor() {
+  public @Nullable Player getEditor() {
     return editor;
   }
 
   @Override
-  public void setEditor(@Nullable PlayerEntity editor) {
+  public void setEditor(@Nullable Player editor) {
     this.editor = editor;
   }
 
-  public BlockEntityUpdateS2CPacket toUpdatePacket() {
-    return BlockEntityUpdateS2CPacket.create(this);
+  public ClientboundBlockEntityDataPacket getUpdatePacket() {
+    return ClientboundBlockEntityDataPacket.create(this);
   }
 
   /**

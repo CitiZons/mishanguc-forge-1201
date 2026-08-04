@@ -1,34 +1,30 @@
 package pers.solid.mishang.uc.text;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.SimpleRegistry;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.InvalidIdentifierException;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.Registry;
+import net.minecraft.core.MappedRegistry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.Mishanguc;
+import net.minecraft.ResourceLocationException;
 
 /**
  * SpecialDrawableType（特殊可渲染内容类型）表示一个 SpecialDrawable 的类型，可以指定一个 id 以及如何根据字符串参数或者 NBT 进行反序列化。SpecialDrawableType 拥有注册表。
  */
 @ApiStatus.AvailableSince("0.2.4")
 public interface SpecialDrawableType<S extends SpecialDrawable> {
-  RegistryKey<Registry<SpecialDrawableType<? extends SpecialDrawable>>> REGISTRY_KEY = RegistryKey.ofRegistry(Mishanguc.id("special_drawable_type"));
-  /**
-   * SpecialDrawableType 的注册表。
-   */
-  SimpleRegistry<SpecialDrawableType<? extends SpecialDrawable>> REGISTRY = FabricRegistryBuilder.createSimple(REGISTRY_KEY).buildAndRegister();
+  ResourceKey<Registry<SpecialDrawableType<? extends SpecialDrawable>>> REGISTRY_KEY = ResourceKey.createRegistryKey(Mishanguc.id("special_drawable_type"));
+  MappedRegistry<SpecialDrawableType<? extends SpecialDrawable>> REGISTRY = new MappedRegistry<>(REGISTRY_KEY, com.mojang.serialization.Lifecycle.stable());
 
   /**
    * 根据已注册的 id 查询对象，如果不存在则返回 {@code null}。
    */
-  static @Nullable SpecialDrawableType<? extends SpecialDrawable> fromId(Identifier id) {
+  static @Nullable SpecialDrawableType<? extends SpecialDrawable> fromId(ResourceLocation id) {
     return REGISTRY.get(id);
   }
 
@@ -36,13 +32,13 @@ public interface SpecialDrawableType<S extends SpecialDrawable> {
    * 根据已注册的 id 查询对象。这个 id 字符串如果没有指定命名空间，则默认为 {@code mishanguc}。
    *
    * @return null 如果 id 有效但并不存在。
-   * @throws InvalidIdentifierException 如果这个 id 是无效的。
+   * @throws ResourceLocationException 如果这个 id 是无效的。
    */
-  static @Nullable SpecialDrawableType<? extends SpecialDrawable> fromId(String id) throws InvalidIdentifierException {
+  static @Nullable SpecialDrawableType<? extends SpecialDrawable> fromId(String id) throws ResourceLocationException {
     int i = id.indexOf(':');
     if (i >= 0) {
       // id 中有冒号的情况，使用指定的命名空间。
-      return fromId(new Identifier(id));
+      return fromId(new ResourceLocation(id));
     } else {
       // id 中没有冒号的情况，使用默认命名空间。
       return fromId(Mishanguc.id(id));
@@ -57,7 +53,7 @@ public interface SpecialDrawableType<S extends SpecialDrawable> {
   static @Nullable SpecialDrawableType<? extends SpecialDrawable> tryFromId(String id) {
     try {
       return fromId(id);
-    } catch (InvalidIdentifierException ignore) {
+    } catch (ResourceLocationException ignore) {
       return null;
     }
   }
@@ -65,8 +61,8 @@ public interface SpecialDrawableType<S extends SpecialDrawable> {
   /**
    * 根据注册表查询该对象的 id。如果不存在，则返回 {@code null}。
    */
-  default Identifier getId() {
-    return REGISTRY.getId(this);
+  default ResourceLocation getId() {
+    return REGISTRY.getKey(this);
   }
 
   /**
@@ -75,7 +71,7 @@ public interface SpecialDrawableType<S extends SpecialDrawable> {
    * @return 该类型的 SpecialDrawable 对象。
    */
   @Contract(pure = true)
-  @Nullable S fromNbt(@NotNull TextContext textContext, @NotNull NbtCompound nbt);
+  @Nullable S fromNbt(@NotNull TextContext textContext, @NotNull CompoundTag nbt);
 
   /**
    * 根据已有的参数（字符串形式的）返回对象，通常用于告示牌编辑界面中。如果在文本框中输入 {@code -rect 2 3}，则会调用 {@code fromStringArgs(textContext, "2 3")}。

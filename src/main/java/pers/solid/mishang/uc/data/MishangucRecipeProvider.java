@@ -2,25 +2,25 @@ package pers.solid.mishang.uc.data;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput;
-import net.fabricmc.fabric.api.datagen.v1.provider.FabricRecipeProvider;
-import net.fabricmc.fabric.api.tag.convention.v1.ConventionalItemTags;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.data.server.recipe.*;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemConvertible;
-import net.minecraft.item.Items;
-import net.minecraft.recipe.Ingredient;
-import net.minecraft.recipe.book.RecipeCategory;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.Identifier;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.data.recipes.*;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.tags.TagKey;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.MishangUtils;
 import pers.solid.mishang.uc.Mishanguc;
+import pers.solid.mishang.uc.data.stubs.ConventionalItemTags;
+import pers.solid.mishang.uc.data.stubs.FabricDataOutput;
+import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
 import pers.solid.mishang.uc.block.AbstractRoadSlabBlock;
 import pers.solid.mishang.uc.block.GlassHandrailBlock;
 import pers.solid.mishang.uc.block.MishangucBlock;
@@ -40,12 +40,12 @@ public class MishangucRecipeProvider extends FabricRecipeProvider {
   }
 
   @Override
-  public void generate(Consumer<RecipeJsonProvider> exporter) {
+  public void generate(Consumer<FinishedRecipe> exporter) {
     addRegularRecipes(exporter);
     addSpecialRecipes(exporter);
   }
 
-  private static void addRegularRecipes(Consumer<RecipeJsonProvider> exporter) {
+  private static void addRegularRecipes(Consumer<FinishedRecipe> exporter) {
     for (Block block : MishangUtils.blocks()) {
       if (block instanceof MishangucBlock r) {
         r.writeRecipes(exporter);
@@ -55,45 +55,44 @@ public class MishangucRecipeProvider extends FabricRecipeProvider {
     }
     for (Item item : MishangUtils.items()) {
       if (item instanceof MishangucItem i) {
-        final CraftingRecipeJsonBuilder craftingRecipe = i.getCraftingRecipe();
+        final RecipeBuilder craftingRecipe = i.getCraftingRecipe();
         if (craftingRecipe != null) {
-          craftingRecipe.offerTo(exporter);
+          craftingRecipe.save(exporter);
         }
       }
     }
   }
 
-
   /**
    * 生成模组的部分配方。
    */
-  public static void addSpecialRecipes(Consumer<RecipeJsonProvider> exporter) {
+  public static void addSpecialRecipes(Consumer<FinishedRecipe> exporter) {
     addGlassHandrailsRecipes(exporter);
     addRecipesForInvisibleSigns(exporter);
     addRoadPalingRecipes(exporter);
   }
 
-  private static void addGlassHandrailsRecipes(Consumer<RecipeJsonProvider> exporter) {
+  private static void addGlassHandrailsRecipes(Consumer<FinishedRecipe> exporter) {
     addRecipeForGlassHandrail(exporter, HandrailBlocks.COLORED_DECORATED_STONE_HANDRAIL, Items.STONE, ColoredBlocks.COLORED_CONCRETE, Items.STONE, 6, null);
     addRecipeForGlassHandrail(exporter, HandrailBlocks.COLORED_DECORATED_COBBLESTONE_HANDRAIL, Items.COBBLESTONE, ColoredBlocks.COLORED_CONCRETE, Items.COBBLESTONE, 6, null);
     addRecipeForGlassHandrail(exporter, HandrailBlocks.COLORED_DECORATED_MOSSY_COBBLESTONE_HANDRAIL, Items.MOSSY_COBBLESTONE, ColoredBlocks.COLORED_CONCRETE, Items.MOSSY_COBBLESTONE, 6, null);
 
     HandrailBlocks.DECORATED_IRON_HANDRAILS.forEach((dyeColor, glassHandrailBlock) -> {
-      final TagKey<Item> dyeKey = TagKey.of(RegistryKeys.ITEM, new Identifier("c", "dyes/" + dyeColor.asString()));
-      ShapedRecipeJsonBuilder.create(RecipeCategory.DECORATIONS, glassHandrailBlock, 4)
+      final TagKey<Item> dyeKey = TagKey.create(Registries.ITEM, new ResourceLocation("c", "dyes/" + dyeColor.getSerializedName()));
+      ShapedRecipeBuilder.shaped(RecipeCategory.DECORATIONS, glassHandrailBlock, 4)
           .pattern("XXX")
           .pattern("oMo")
           .pattern("nnn")
-          .input('X', ConventionalItemTags.IRON_INGOTS)
-          .input('o', Items.GLASS_PANE)
-          .input('M', dyeKey)
-          .input('n', Items.IRON_NUGGET)
-          .criterion("has_iron_ingot", RecipeProvider.conditionsFromTag(ConventionalItemTags.IRON_INGOTS))
-          .criterion(RecipeProvider.hasItem(Items.GLASS_PANE), RecipeProvider.conditionsFromItem(Items.GLASS_PANE))
-          .criterion("has_dye", RecipeProvider.conditionsFromTag(dyeKey))
-          .criterion(RecipeProvider.hasItem(Items.IRON_NUGGET), RecipeProvider.conditionsFromItem(Items.IRON_NUGGET))
+          .define('X', ConventionalItemTags.IRON_INGOTS)
+          .define('o', Items.GLASS_PANE)
+          .define('M', dyeKey)
+          .define('n', Items.IRON_NUGGET)
+          .unlockedBy("has_iron_ingot", FabricRecipeProvider.has(ConventionalItemTags.IRON_INGOTS))
+          .unlockedBy(FabricRecipeProvider.getHasName(Items.GLASS_PANE), FabricRecipeProvider.has(Items.GLASS_PANE))
+          .unlockedBy("has_dye", FabricRecipeProvider.has(dyeKey))
+          .unlockedBy(FabricRecipeProvider.getHasName(Items.IRON_NUGGET), FabricRecipeProvider.has(Items.IRON_NUGGET))
           .group("mishanguc:decorated_iron_handrail")
-          .offerTo(exporter);
+          .save(exporter);
     });
 
     addRecipeForGlassHandrail(exporter, HandrailBlocks.COLORED_DECORATED_IRON_HANDRAIL, ConventionalItemTags.IRON_INGOTS, "has_iron_ingot", ColoredBlocks.COLORED_CONCRETE, Items.IRON_NUGGET, 4);
@@ -127,8 +126,8 @@ public class MishangucRecipeProvider extends FabricRecipeProvider {
         HandrailBlocks.GLASS_CRIMSON_HANDRAIL,
         HandrailBlocks.GLASS_WARPED_HANDRAIL)) {
       final Item wood = output.baseBlock().asItem();
-      final Identifier woodId = Registries.ITEM.getId(wood);
-      final Item planks = Registries.ITEM.get(woodId.withPath(woodId.getPath().replace("wood", "planks").replace("hyphae", "planks")));
+      final ResourceLocation woodId = BuiltInRegistries.ITEM.getKey(wood);
+      final Item planks = BuiltInRegistries.ITEM.get(woodId.withPath(woodId.getPath().replace("wood", "planks").replace("hyphae", "planks")));
       Preconditions.checkState(wood != planks);
       addRecipeForGlassHandrail(exporter, output, wood, planks, Items.STICK, 6, "glass_wooden_handrail");
     }
@@ -171,88 +170,88 @@ public class MishangucRecipeProvider extends FabricRecipeProvider {
     addRecipeForGlassHandrail(exporter, HandrailBlocks.COLORED_DECORATED_CRYING_OBSIDIAN_HANDRAIL, Items.CRYING_OBSIDIAN, ColoredBlocks.COLORED_CONCRETE, Items.CRYING_OBSIDIAN, 8, null);
   }
 
-  private static void addRecipeForGlassHandrail(Consumer<RecipeJsonProvider> exporter, GlassHandrailBlock output, ItemConvertible frame, ItemConvertible decoration, ItemConvertible base, int outputCount, @Nullable String group) {
-    final ShapedRecipeJsonBuilder r = ShapedRecipeJsonBuilder.create(RecipeCategory.DECORATIONS, output, outputCount)
+  private static void addRecipeForGlassHandrail(Consumer<FinishedRecipe> exporter, GlassHandrailBlock output, ItemLike frame, ItemLike decoration, ItemLike base, int outputCount, @Nullable String group) {
+    final ShapedRecipeBuilder r = ShapedRecipeBuilder.shaped(RecipeCategory.DECORATIONS, output, outputCount)
         .pattern("XXX")
         .pattern("oMo")
         .pattern("nnn")
-        .input('X', frame)
-        .input('o', Items.GLASS_PANE)
-        .input('M', decoration)
-        .input('n', base)
-        .criterion(RecipeProvider.hasItem(frame), RecipeProvider.conditionsFromItem(frame))
-        .criterion(RecipeProvider.hasItem(Items.GLASS_PANE), RecipeProvider.conditionsFromItem(Items.GLASS_PANE))
-        .criterion(RecipeProvider.hasItem(decoration), RecipeProvider.conditionsFromItem(decoration));
+        .define('X', frame)
+        .define('o', Items.GLASS_PANE)
+        .define('M', decoration)
+        .define('n', base)
+        .unlockedBy(FabricRecipeProvider.getHasName(frame), FabricRecipeProvider.has(frame))
+        .unlockedBy(FabricRecipeProvider.getHasName(Items.GLASS_PANE), FabricRecipeProvider.has(Items.GLASS_PANE))
+        .unlockedBy(FabricRecipeProvider.getHasName(decoration), FabricRecipeProvider.has(decoration));
     if (frame != base) {
-      r.criterion(RecipeProvider.hasItem(base), RecipeProvider.conditionsFromItem(base));
+      r.unlockedBy(FabricRecipeProvider.getHasName(base), FabricRecipeProvider.has(base));
     }
     r.group(group)
-        .offerTo(exporter);
+        .save(exporter);
   }
 
-  private static void addRecipeForGlassHandrail(Consumer<RecipeJsonProvider> exporter, GlassHandrailBlock output, TagKey<Item> frame, String frameCriterionName, ItemConvertible decoration, ItemConvertible base, int outputCount) {
-    ShapedRecipeJsonBuilder.create(RecipeCategory.DECORATIONS, output, outputCount)
+  private static void addRecipeForGlassHandrail(Consumer<FinishedRecipe> exporter, GlassHandrailBlock output, TagKey<Item> frame, String frameCriterionName, ItemLike decoration, ItemLike base, int outputCount) {
+    ShapedRecipeBuilder.shaped(RecipeCategory.DECORATIONS, output, outputCount)
         .pattern("XXX")
         .pattern("oMo")
         .pattern("nnn")
-        .input('X', frame)
-        .input('o', Items.GLASS_PANE)
-        .input('M', decoration)
-        .input('n', base)
-        .criterion(frameCriterionName, RecipeProvider.conditionsFromTag(frame))
-        .criterion(RecipeProvider.hasItem(Items.GLASS_PANE), RecipeProvider.conditionsFromItem(Items.GLASS_PANE))
-        .criterion(RecipeProvider.hasItem(decoration), RecipeProvider.conditionsFromItem(decoration))
-        .criterion(RecipeProvider.hasItem(base), RecipeProvider.conditionsFromItem(base))
-        .offerTo(exporter);
+        .define('X', frame)
+        .define('o', Items.GLASS_PANE)
+        .define('M', decoration)
+        .define('n', base)
+        .unlockedBy(frameCriterionName, FabricRecipeProvider.has(frame))
+        .unlockedBy(FabricRecipeProvider.getHasName(Items.GLASS_PANE), FabricRecipeProvider.has(Items.GLASS_PANE))
+        .unlockedBy(FabricRecipeProvider.getHasName(decoration), FabricRecipeProvider.has(decoration))
+        .unlockedBy(FabricRecipeProvider.getHasName(base), FabricRecipeProvider.has(base))
+        .save(exporter);
   }
 
-  private static void addRecipeForGlassHandrail(Consumer<RecipeJsonProvider> exporter, GlassHandrailBlock output, TagKey<Item> frame, String frameCriterionName, ItemConvertible decoration, int outputCount) {
-    ShapedRecipeJsonBuilder.create(RecipeCategory.DECORATIONS, output, outputCount)
+  private static void addRecipeForGlassHandrail(Consumer<FinishedRecipe> exporter, GlassHandrailBlock output, TagKey<Item> frame, String frameCriterionName, ItemLike decoration, int outputCount) {
+    ShapedRecipeBuilder.shaped(RecipeCategory.DECORATIONS, output, outputCount)
         .pattern("XXX")
         .pattern("oMo")
         .pattern("XXX")
-        .input('X', frame)
-        .input('o', Items.GLASS_PANE)
-        .input('M', decoration)
-        .criterion(frameCriterionName, RecipeProvider.conditionsFromTag(frame))
-        .criterion(RecipeProvider.hasItem(Items.GLASS_PANE), RecipeProvider.conditionsFromItem(Items.GLASS_PANE))
-        .criterion(RecipeProvider.hasItem(decoration), RecipeProvider.conditionsFromItem(decoration))
-        .offerTo(exporter);
+        .define('X', frame)
+        .define('o', Items.GLASS_PANE)
+        .define('M', decoration)
+        .unlockedBy(frameCriterionName, FabricRecipeProvider.has(frame))
+        .unlockedBy(FabricRecipeProvider.getHasName(Items.GLASS_PANE), FabricRecipeProvider.has(Items.GLASS_PANE))
+        .unlockedBy(FabricRecipeProvider.getHasName(decoration), FabricRecipeProvider.has(decoration))
+        .save(exporter);
   }
 
-  private static void addRecipesForInvisibleSigns(Consumer<RecipeJsonProvider> exporter) {
+  private static void addRecipesForInvisibleSigns(Consumer<FinishedRecipe> exporter) {
     // 隐形告示牌是合成其他告示牌的基础。
-    ShapedRecipeJsonBuilder.create(RecipeCategory.DECORATIONS, WallSignBlocks.INVISIBLE_WALL_SIGN, 9)
+    ShapedRecipeBuilder.shaped(RecipeCategory.DECORATIONS, WallSignBlocks.INVISIBLE_WALL_SIGN, 9)
         .pattern(".#.")
         .pattern("#o#")
         .pattern(".#.")
-        .input('.', Items.IRON_NUGGET)
-        .input('#', Items.FEATHER)
-        .input('o', Items.GOLD_INGOT)
-        .criterion("has_iron_nugget", RecipeProvider.conditionsFromItem(Items.IRON_NUGGET))
-        .criterion("has_feather", RecipeProvider.conditionsFromItem(Items.FEATHER))
-        .criterion("has_gold_ingot", RecipeProvider.conditionsFromItem(Items.GOLD_INGOT))
-        .offerTo(exporter);
-    ShapedRecipeJsonBuilder.create(RecipeCategory.DECORATIONS, WallSignBlocks.INVISIBLE_GLOWING_WALL_SIGN, 3)
+        .define('.', Items.IRON_NUGGET)
+        .define('#', Items.FEATHER)
+        .define('o', Items.GOLD_INGOT)
+        .unlockedBy("has_iron_nugget", FabricRecipeProvider.has(Items.IRON_NUGGET))
+        .unlockedBy("has_feather", FabricRecipeProvider.has(Items.FEATHER))
+        .unlockedBy("has_gold_ingot", FabricRecipeProvider.has(Items.GOLD_INGOT))
+        .save(exporter);
+    ShapedRecipeBuilder.shaped(RecipeCategory.DECORATIONS, WallSignBlocks.INVISIBLE_GLOWING_WALL_SIGN, 3)
         .pattern("---")
         .pattern("###")
-        .input('-', Items.GLOWSTONE_DUST)
-        .input('#', WallSignBlocks.INVISIBLE_WALL_SIGN)
-        .criterion("has_base_block", RecipeProvider.conditionsFromItem(WallSignBlocks.INVISIBLE_WALL_SIGN))
-        .offerTo(exporter);
+        .define('-', Items.GLOWSTONE_DUST)
+        .define('#', WallSignBlocks.INVISIBLE_WALL_SIGN)
+        .unlockedBy("has_base_block", FabricRecipeProvider.has(WallSignBlocks.INVISIBLE_WALL_SIGN))
+        .save(exporter);
   }
 
-  private static void addRoadPalingRecipes(Consumer<RecipeJsonProvider> exporter) {
+  private static void addRoadPalingRecipes(Consumer<FinishedRecipe> exporter) {
     // 将带有标线的道路重置为不带标线的道路。
-    final TagKey<Item> roadBlocks = TagKey.of(RegistryKeys.ITEM, Mishanguc.id("road_blocks"));
-    SingleItemRecipeJsonBuilder.createStonecutting(Ingredient.fromTag(roadBlocks), RecipeCategory.BUILDING_BLOCKS, RoadBlocks.ROAD_BLOCK)
-        .criterion("has_road_block", RecipeProvider.conditionsFromTag(roadBlocks))
-        .offerTo(exporter, CraftingRecipeJsonBuilder.getItemId(RoadBlocks.ROAD_BLOCK).withSuffixedPath("_from_paling"));
-    final TagKey<Item> roadSlabs = TagKey.of(RegistryKeys.ITEM, Mishanguc.id("road_slabs"));
+    final TagKey<Item> roadBlocks = TagKey.create(Registries.ITEM, Mishanguc.id("road_blocks"));
+    SingleItemRecipeBuilder.stonecutting(Ingredient.of(roadBlocks), RecipeCategory.BUILDING_BLOCKS, RoadBlocks.ROAD_BLOCK)
+        .unlockedBy("has_road_block", FabricRecipeProvider.has(roadBlocks))
+        .save(exporter, FabricRecipeProvider.getConversionRecipeName(RoadBlocks.ROAD_BLOCK).withSuffix("_from_paling"));
+    final TagKey<Item> roadSlabs = TagKey.create(Registries.ITEM, Mishanguc.id("road_slabs"));
     final AbstractRoadSlabBlock roadSlabBlock = RoadSlabBlocks.BLOCK_TO_SLABS.get(RoadBlocks.ROAD_BLOCK);
-    SingleItemRecipeJsonBuilder.createStonecutting(Ingredient.fromTag(roadSlabs), RecipeCategory.BUILDING_BLOCKS, roadSlabBlock)
-        .criterion("has_road_slab", RecipeProvider.conditionsFromTag(roadSlabs))
-        .offerTo(exporter, CraftingRecipeJsonBuilder.getItemId(roadSlabBlock).withSuffixedPath("_from_paling"));
+    SingleItemRecipeBuilder.stonecutting(Ingredient.of(roadSlabs), RecipeCategory.BUILDING_BLOCKS, roadSlabBlock)
+        .unlockedBy("has_road_slab", FabricRecipeProvider.has(roadSlabs))
+        .save(exporter, FabricRecipeProvider.getConversionRecipeName(roadSlabBlock).withSuffix("_from_paling"));
   }
 
   public static @Nullable String getCustomRecipeCategory(Item outputItem) {

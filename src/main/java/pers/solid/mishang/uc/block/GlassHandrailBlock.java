@@ -1,10 +1,14 @@
 package pers.solid.mishang.uc.block;
 
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.minecraft.block.Block;
-import net.minecraft.data.client.*;
-import net.minecraft.text.MutableText;
-import net.minecraft.util.Identifier;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.Block;
+import pers.solid.mishang.uc.data.stubs.*;
+import pers.solid.mishang.uc.data.stubs.TextureKey;
+import pers.solid.mishang.uc.data.stubs.TextureMap;
+import pers.solid.mishang.uc.data.stubs.BlockStateModelGenerator;
+import pers.solid.mishang.uc.data.stubs.ModelProvider;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -13,33 +17,34 @@ import pers.solid.mishang.uc.data.MishangucModels;
 import pers.solid.mishang.uc.util.TextBridge;
 
 import java.util.function.Function;
+import net.minecraft.world.level.block.StairBlock;
 
 @ApiStatus.AvailableSince("0.2.4")
 public class GlassHandrailBlock extends HandrailBlock {
-  public final Identifier decorationTexture;
+  public final ResourceLocation decorationTexture;
   private final CentralBlock central;
   private final CornerBlock corner;
   private final StairBlock stair;
   private final OuterBlock outer;
   private final Block baseBlock;
-  private final Identifier frameTexture;
+  private final ResourceLocation frameTexture;
 
-  public GlassHandrailBlock(Block baseBlock, Settings settings, String frameTexture, String decorationTexture) {
+  public GlassHandrailBlock(Block baseBlock, Properties settings, String frameTexture, String decorationTexture) {
     super(settings);
     this.baseBlock = baseBlock;
-    this.frameTexture = new Identifier(frameTexture);
-    this.decorationTexture = new Identifier(decorationTexture);
+    this.frameTexture = new ResourceLocation(frameTexture);
+    this.decorationTexture = new ResourceLocation(decorationTexture);
     this.central = new CentralBlock(this);
     this.corner = new CornerBlock(this);
     this.stair = new StairBlock(this);
     this.outer = new OuterBlock(this);
   }
 
-  protected GlassHandrailBlock(Block baseBlock, Settings settings, String frameTexture, String decorationTexture, Function<GlassHandrailBlock, CentralBlock> centralProvider, Function<GlassHandrailBlock, CornerBlock> cornerProvider, Function<GlassHandrailBlock, StairBlock> stairProvider, Function<GlassHandrailBlock, OuterBlock> outerProvider) {
-    super(settings.nonOpaque());
+  protected GlassHandrailBlock(Block baseBlock, Properties settings, String frameTexture, String decorationTexture, Function<GlassHandrailBlock, CentralBlock> centralProvider, Function<GlassHandrailBlock, CornerBlock> cornerProvider, Function<GlassHandrailBlock, StairBlock> stairProvider, Function<GlassHandrailBlock, OuterBlock> outerProvider) {
+    super(settings.noOcclusion());
     this.baseBlock = baseBlock;
-    this.frameTexture = new Identifier(frameTexture);
-    this.decorationTexture = new Identifier(decorationTexture);
+    this.frameTexture = new ResourceLocation(frameTexture);
+    this.decorationTexture = new ResourceLocation(decorationTexture);
     central = centralProvider.apply(this);
     corner = cornerProvider.apply(this);
     stair = stairProvider.apply(this);
@@ -49,7 +54,7 @@ public class GlassHandrailBlock extends HandrailBlock {
   @Override
   public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
     final TextureMap textures = getTextures();
-    final Identifier modelId = MishangucModels.GLASS_HANDRAIL.upload(this, textures, blockStateModelGenerator.modelCollector);
+    final ResourceLocation modelId = MishangucModels.GLASS_HANDRAIL.upload(this, textures, blockStateModelGenerator.modelCollector);
     MishangucModels.GLASS_HANDRAIL_INVENTORY.upload(ModelIds.getItemModelId(asItem()), textures, blockStateModelGenerator.modelCollector);
     blockStateModelGenerator.blockStateCollector.accept(createBlockStates(modelId));
   }
@@ -91,20 +96,20 @@ public class GlassHandrailBlock extends HandrailBlock {
   public static class CentralBlock extends HandrailCentralBlock<GlassHandrailBlock> {
 
     @Override
-    public MutableText getName() {
+    public MutableComponent getName() {
       return TextBridge.translatable("block.mishanguc.handrail_central", baseHandrail.getName());
     }
 
     protected CentralBlock(@NotNull GlassHandrailBlock baseRail) {
-      super(baseRail, FabricBlockSettings.copyOf(baseRail).nonOpaque());
+      super(baseRail, BlockBehaviour.Properties.copy(baseRail).noOcclusion());
     }
 
     @Override
     public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
       final TextureMap textures = baseHandrail.getTextures();
-      final Identifier postModelId = MishangucModels.GLASS_HANDRAIL_POST.upload(this, textures, blockStateModelGenerator.modelCollector);
-      final Identifier sideModelId = MishangucModels.GLASS_HANDRAIL_SIDE.upload(this, textures, blockStateModelGenerator.modelCollector);
-      final Identifier postSideModelId = MishangucModels.GLASS_HANDRAIL_POST_SIDE.upload(this, textures, blockStateModelGenerator.modelCollector);
+      final ResourceLocation postModelId = MishangucModels.GLASS_HANDRAIL_POST.upload(this, textures, blockStateModelGenerator.modelCollector);
+      final ResourceLocation sideModelId = MishangucModels.GLASS_HANDRAIL_SIDE.upload(this, textures, blockStateModelGenerator.modelCollector);
+      final ResourceLocation postSideModelId = MishangucModels.GLASS_HANDRAIL_POST_SIDE.upload(this, textures, blockStateModelGenerator.modelCollector);
       blockStateModelGenerator.blockStateCollector.accept(createBlockStates(postModelId, postSideModelId, sideModelId));
     }
   }
@@ -112,17 +117,17 @@ public class GlassHandrailBlock extends HandrailBlock {
   public static class CornerBlock extends HandrailCornerBlock<GlassHandrailBlock> {
 
     @Override
-    public MutableText getName() {
+    public MutableComponent getName() {
       return TextBridge.translatable("block.mishanguc.handrail_corner", baseHandrail.getName());
     }
 
     protected CornerBlock(@NotNull GlassHandrailBlock baseRail) {
-      super(baseRail, FabricBlockSettings.copyOf(baseRail).nonOpaque());
+      super(baseRail, BlockBehaviour.Properties.copy(baseRail).noOcclusion());
     }
 
     @Override
     public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
-      final Identifier modelId = MishangucModels.GLASS_HANDRAIL_CORNER.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
+      final ResourceLocation modelId = MishangucModels.GLASS_HANDRAIL_CORNER.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
       blockStateModelGenerator.blockStateCollector.accept(createBlockStates(modelId));
     }
   }
@@ -130,21 +135,21 @@ public class GlassHandrailBlock extends HandrailBlock {
   public static class StairBlock extends HandrailStairBlock<GlassHandrailBlock> {
 
     protected StairBlock(@NotNull GlassHandrailBlock baseRail) {
-      super(baseRail, FabricBlockSettings.copyOf(baseRail).nonOpaque());
+      super(baseRail, BlockBehaviour.Properties.copy(baseRail).noOcclusion());
     }
 
     @Override
-    public MutableText getName() {
+    public MutableComponent getName() {
       return TextBridge.translatable("block.mishanguc.handrail_stair", baseHandrail.getName());
     }
 
     @Override
     public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
       final TextureMap textures = baseHandrail.getTextures();
-      final Identifier baseModelId = MishangucModels.createBlock("glass_handrail_stair_middle_center", FRAME, GLASS, DECORATION).upload(this, textures, blockStateModelGenerator.modelCollector);
+      final ResourceLocation baseModelId = MishangucModels.createBlock("glass_handrail_stair_middle_center", FRAME, GLASS, DECORATION).upload(this, textures, blockStateModelGenerator.modelCollector);
       for (Shape shape : Shape.values()) {
         for (Position position : Position.values()) {
-          MishangucModels.createBlock(String.format("glass_handrail_stair_%s_%s", shape.asString(), position.asString()), "_" + shape.asString() + "_" + position.asString(), FRAME, GLASS, DECORATION).upload(this, textures, blockStateModelGenerator.modelCollector);
+          MishangucModels.createBlock(String.format("glass_handrail_stair_%s_%s", shape.getSerializedName(), position.getSerializedName()), "_" + shape.getSerializedName() + "_" + position.getSerializedName(), FRAME, GLASS, DECORATION).upload(this, textures, blockStateModelGenerator.modelCollector);
         }
       }
       blockStateModelGenerator.blockStateCollector.accept(createBlockStates(baseModelId));
@@ -154,17 +159,17 @@ public class GlassHandrailBlock extends HandrailBlock {
   public static class OuterBlock extends HandrailOuterBlock<GlassHandrailBlock> {
 
     protected OuterBlock(@NotNull GlassHandrailBlock baseRail) {
-      super(baseRail, FabricBlockSettings.copyOf(baseRail).nonOpaque());
+      super(baseRail, BlockBehaviour.Properties.copy(baseRail).noOcclusion());
     }
 
     @Override
-    public MutableText getName() {
+    public MutableComponent getName() {
       return TextBridge.translatable("block.mishanguc.handrail_outer", baseHandrail.getName());
     }
 
     @Override
     public void registerModels(ModelProvider modelProvider, BlockStateModelGenerator blockStateModelGenerator) {
-      final Identifier modelId = MishangucModels.GLASS_HANDRAIL_OUTER.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
+      final ResourceLocation modelId = MishangucModels.GLASS_HANDRAIL_OUTER.upload(this, baseHandrail.getTextures(), blockStateModelGenerator.modelCollector);
       blockStateModelGenerator.blockStateCollector.accept(createBlockStates(modelId));
     }
   }

@@ -1,12 +1,12 @@
 package pers.solid.mishang.uc.text;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registry;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.InvalidIdentifierException;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.ResourceLocationException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import pers.solid.mishang.uc.Mishanguc;
@@ -30,16 +30,16 @@ public final class SpecialDrawableTypes {
   });
 
   public static final SpecialDrawableType<TextureSpecialDrawable> TEXTURE = register("texture", (textContext, nbt) -> {
-    final Identifier texture = Identifier.tryParse(nbt.getString("texture"));
+    final ResourceLocation texture = ResourceLocation.tryParse(nbt.getString("texture"));
     return texture != null && TextureSpecialDrawable.isValidIdentifier(texture) ? new TextureSpecialDrawable(texture, textContext) : null;
   }, (textContext, args) -> {
-    final Identifier identifier;
+    final ResourceLocation identifier;
     try {
-      identifier = new Identifier(args);
-    } catch (InvalidIdentifierException e) {
+      identifier = new ResourceLocation(args);
+    } catch (ResourceLocationException e) {
       throw new CommandSyntaxException(null, TextBridge.translatable("argument.id.invalid"));
     }
-    if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
+    if (FMLEnvironment.dist == Dist.CLIENT) {
       try {
         TextureSpecialDrawable.validateIdentifier(identifier);
       } catch (IllegalArgumentException e) {
@@ -61,7 +61,7 @@ public final class SpecialDrawableTypes {
   private record Simple<S extends SpecialDrawable>(FromNbt<S> fromNbt, FromStringArgs<S> fromStringArgs) implements SpecialDrawableType<S> {
 
     @Override
-    public @Nullable S fromNbt(@NotNull TextContext textContext, @NotNull NbtCompound nbt) {
+    public @Nullable S fromNbt(@NotNull TextContext textContext, @NotNull CompoundTag nbt) {
       return fromNbt.fromNbt(textContext, nbt);
     }
 
@@ -77,7 +77,7 @@ public final class SpecialDrawableTypes {
 
   @FunctionalInterface
   public interface FromNbt<S extends SpecialDrawable> {
-    @Nullable S fromNbt(@NotNull TextContext textContext, @NotNull NbtCompound nbt);
+    @Nullable S fromNbt(@NotNull TextContext textContext, @NotNull CompoundTag nbt);
   }
 
   @FunctionalInterface

@@ -1,24 +1,24 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.block.AirBlock;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.state.StateManager;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
+import net.minecraft.world.level.block.AirBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import org.apache.commons.lang3.ObjectUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -58,13 +58,13 @@ public interface RoadWithAutoLine extends Road {
    * @return 连接状态的映射。
    */
   default EnumMap<Direction, @NotNull RoadConnectionState> getConnectionStateMap(
-      WorldAccess world, BlockPos pos0) {
+      LevelAccessor world, BlockPos pos0) {
     EnumMap<Direction, @NotNull RoadConnectionState> connectionStateMap = new EnumMap<>(Direction.class);
-    for (Direction direction : Direction.Type.HORIZONTAL) {
+    for (Direction direction : Direction.Plane.HORIZONTAL) {
       RoadConnectionState state = null;
       // 检查毗邻方块及其上下方。
-      for (BlockPos pos : new BlockPos[]{pos0, pos0.up(), pos0.down()}) {
-        BlockState nextState = world.getBlockState(pos.offset(direction, 1));
+      for (BlockPos pos : new BlockPos[]{pos0, pos0.above(), pos0.below()}) {
+        BlockState nextState = world.getBlockState(pos.relative(direction, 1));
         Block nextBlock = nextState.getBlock();
         if (nextBlock instanceof final Road road) {
           state = road.getConnectionStateOf(nextState, direction.getOpposite());
@@ -84,52 +84,52 @@ public interface RoadWithAutoLine extends Road {
   }
 
   @Override
-  default void appendRoadProperties(StateManager.Builder<Block, BlockState> builder) {
+  default void appendRoadProperties(StateDefinition.Builder<Block, BlockState> builder) {
     Road.super.appendRoadProperties(builder);
   }
 
   @Override
-  default ActionResult onUseRoad(
+  default InteractionResult onUseRoad(
       BlockState state,
-      World world,
+      Level world,
       BlockPos pos,
-      PlayerEntity player,
-      Hand hand,
+      Player player,
+      InteractionHand hand,
       BlockHitResult hit) {
     Road.super.onUseRoad(state, world, pos, player, hand, hit);
-    final Item item = player.getStackInHand(hand).getItem();
+    final Item item = player.getItemInHand(hand).getItem();
     if (item instanceof final BlockItem blockItem
         && blockItem.getBlock() instanceof RoadWithAutoLine
-        && !Direction.Type.VERTICAL.test(hit.getSide())) {
-      return ActionResult.PASS;
+        && !Direction.Plane.VERTICAL.test(hit.getDirection())) {
+      return InteractionResult.PASS;
     }
-    world.setBlockState(pos, tryMakeState(getConnectionStateMap(world, pos), state, pos), 2);
-    return ActionResult.SUCCESS;
+    world.setBlock(pos, tryMakeState(getConnectionStateMap(world, pos), state, pos), 2);
+    return InteractionResult.SUCCESS;
   }
 
   @Override
   default void neighborRoadUpdate(
-      BlockState state, World world, BlockPos pos, Block sourceBlock, BlockPos sourcePos, boolean notify) {
+      BlockState state, Level world, BlockPos pos, Block sourceBlock, BlockPos sourcePos, boolean notify) {
     // 屏蔽上下方的更新。
-    if (!sourcePos.equals(pos.up())
-        && !sourcePos.equals(pos.down())
+    if (!sourcePos.equals(pos.above())
+        && !sourcePos.equals(pos.below())
         && !(world.getBlockState(sourcePos).getBlock() instanceof AirBlock)) {
       // flags设为2从而使得 <code>flags&1 !=0</code> 不成立，从而不递归更新邻居，参考 {@link World#setBlockState}。
-      world.setBlockState(pos, tryMakeState(getConnectionStateMap(world, pos), state, pos), 2);
+      world.setBlock(pos, tryMakeState(getConnectionStateMap(world, pos), state, pos), 2);
     }
     Road.super.neighborRoadUpdate(state, world, pos, sourceBlock, sourcePos, notify);
   }
 
   @Override
   default void appendRoadTooltip(
-      ItemStack stack, @Nullable BlockView world, List<Text> tooltip, TooltipContext options) {
+      ItemStack stack, @Nullable BlockGetter world, List<Component> tooltip, TooltipFlag options) {
     Road.super.appendRoadTooltip(stack, world, tooltip, options);
     tooltip.add(
         TextBridge.translatable("block.mishanguc.tooltip.road_with_auto_line.1")
-            .formatted(Formatting.GRAY));
+            .withStyle(ChatFormatting.GRAY));
     tooltip.add(
         TextBridge.translatable("block.mishanguc.tooltip.road_with_auto_line.2")
-            .formatted(Formatting.GRAY));
+            .withStyle(ChatFormatting.GRAY));
   }
 
   /**

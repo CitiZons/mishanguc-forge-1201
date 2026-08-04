@@ -1,17 +1,16 @@
 package pers.solid.mishang.uc.text;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.font.GlyphRenderer;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Style;
-import net.minecraft.util.math.ColorHelper;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.client.gui.font.glyphs.BakedGlyph;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.MultiBufferSource;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.util.FastColor;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -22,6 +21,7 @@ import pers.solid.mishang.uc.mixin.TextRendererAccessor;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 public record PatternSpecialDrawable(TextContext textContext, RectanglePattern rectanglePattern) implements SpecialDrawable {
 
@@ -30,24 +30,24 @@ public record PatternSpecialDrawable(TextContext textContext, RectanglePattern r
     return rectanglePattern == RectanglePatterns.EMPTY;
   }
 
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   @Override
-  public void drawExtra(TextRenderer textRenderer, MatrixStack matrixStack, VertexConsumerProvider vertexConsumers, int light, float x, float y) {
+  public void drawExtra(Font font, PoseStack matrixStack, MultiBufferSource vertexConsumers, int light, float x, float y) {
     int color = textContext.color;
     final float red = (float) (color >> 16 & 0xFF) / 255.0f;
     final float green = (float) (color >> 8 & 0xFF) / 255.0f;
     final float blue = (float) (color & 0xFF) / 255.0f;
     final float alpha = ((color & 0xFC000000) == 0) ? 1 : (float) (color >> 24 & 0xFF) / 255.0f;
     //noinspection resource
-    GlyphRenderer glyphRenderer = ((TextRendererAccessor) textRenderer).invokeGetFontStorage(Style.DEFAULT_FONT_ID).getRectangleRenderer();
+    BakedGlyph glyphRenderer = ((TextRendererAccessor) font).invokeGetFontSet(Style.DEFAULT_FONT).whiteGlyph();
     final float sizeMultiplier = 1;
-    final RenderLayer layer = glyphRenderer.getLayer(textContext.outlineColorType != OutlineColorType.NONE ? TextRenderer.TextLayerType.POLYGON_OFFSET : textContext.seeThrough ? TextRenderer.TextLayerType.SEE_THROUGH : TextRenderer.TextLayerType.NORMAL);
+    final RenderType layer = glyphRenderer.renderType(textContext.outlineColorType != OutlineColorType.NONE ? Font.DisplayMode.POLYGON_OFFSET : textContext.seeThrough ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL);
 
     // 文本是否存在阴影。
     final boolean shadow = textContext.outlineColorType == OutlineColorType.NONE && textContext.shadow;
     // 用于文本渲染的矩阵。当存在阴影时，文本渲染需要适当调整。
-    final List<GlyphRenderer.Rectangle> rectanglesToDraw = new ArrayList<>();
-    final List<GlyphRenderer.Rectangle> outlineRectangles = textContext.outlineColorType == OutlineColorType.NONE ? null : new ArrayList<>();
+    final List<BakedGlyph.Effect> rectanglesToDraw = new ArrayList<>();
+    final List<BakedGlyph.Effect> outlineRectangles = textContext.outlineColorType == OutlineColorType.NONE ? null : new ArrayList<>();
     for (float[] rectangle : rectanglePattern.rectangles()) {
       final float minX = (rectangle[0] + x) * sizeMultiplier;
       final float minY = (rectangle[3] + y) * sizeMultiplier;
@@ -58,7 +58,7 @@ public record PatternSpecialDrawable(TextContext textContext, RectanglePattern r
         float h = green * 0.25f;
         float l = blue * 0.25f;
         rectanglesToDraw.add(
-            new GlyphRenderer.Rectangle(minX + 1, minY + 1, maxX + 1, maxY + 1, 0, g, h, l, alpha)
+            new BakedGlyph.Effect(minX + 1, minY + 1, maxX + 1, maxY + 1, 0, g, h, l, alpha)
         );
       }
       if (outlineRectangles != null) {
@@ -68,24 +68,24 @@ public record PatternSpecialDrawable(TextContext textContext, RectanglePattern r
         float outlineB = (outlineColor & 255) / 255f;
         final float outlineAlpha = ((outlineColor & 0xFC000000) == 0) ? 1 : (outlineColor >> 24 & 0xFF) / 255f;
         outlineRectangles.add(
-            new GlyphRenderer.Rectangle(minX - 1, minY + 1, maxX + 1, maxY - 1, 0, outlineR, outlineG, outlineB, outlineAlpha)
+            new BakedGlyph.Effect(minX - 1, minY + 1, maxX + 1, maxY - 1, 0, outlineR, outlineG, outlineB, outlineAlpha)
         );
 
       }
       rectanglesToDraw.add(
-          new GlyphRenderer.Rectangle(minX, minY, maxX, maxY, shadow ? 0.03f : textContext.outlineColorType != OutlineColorType.NONE ? 0.02f : 0, red, green, blue, alpha)
+          new BakedGlyph.Effect(minX, minY, maxX, maxY, shadow ? 0.03f : textContext.outlineColorType != OutlineColorType.NONE ? 0.02f : 0, red, green, blue, alpha)
       );
     }
 
-    final Matrix4f matrix4f = matrixStack.peek().getPositionMatrix();
+    final Matrix4f matrix4f = matrixStack.last().pose();
     final VertexConsumer vertexConsumer = vertexConsumers.getBuffer(layer);
-    for (GlyphRenderer.Rectangle rectangle : rectanglesToDraw) {
-      glyphRenderer.drawRectangle(rectangle, matrix4f, vertexConsumer, light);
+    for (BakedGlyph.Effect rectangle : rectanglesToDraw) {
+      glyphRenderer.renderEffect(rectangle, matrix4f, vertexConsumer, light);
     }
     if (outlineRectangles != null) {
-      final VertexConsumer vertexConsumerOutline = vertexConsumers.getBuffer(glyphRenderer.getLayer(TextRenderer.TextLayerType.NORMAL));
-      for (GlyphRenderer.Rectangle outlineRectangle : outlineRectangles) {
-        glyphRenderer.drawRectangle(outlineRectangle, matrix4f, vertexConsumerOutline, light);
+      final VertexConsumer vertexConsumerOutline = vertexConsumers.getBuffer(glyphRenderer.renderType(Font.DisplayMode.NORMAL));
+      for (BakedGlyph.Effect outlineRectangle : outlineRectangles) {
+        glyphRenderer.renderEffect(outlineRectangle, matrix4f, vertexConsumerOutline, light);
       }
     }
   }
@@ -121,14 +121,14 @@ public record PatternSpecialDrawable(TextContext textContext, RectanglePattern r
   }
 
   @Contract(value = "_,_ -> new", pure = true)
-  public static @Nullable PatternSpecialDrawable fromNbt(TextContext textContext, NbtCompound nbt) {
+  public static @Nullable PatternSpecialDrawable fromNbt(TextContext textContext, CompoundTag nbt) {
     final String shapeName = nbt.getString("shapeName");
     return fromName(textContext, shapeName);
   }
 
   @Override
-  public void writeNbt(NbtCompound nbt) {
-    SpecialDrawable.super.writeNbt(nbt);
+  public void saveAdditional(CompoundTag nbt) {
+    SpecialDrawable.super.saveAdditional(nbt);
     nbt.putString("shapeName", rectanglePattern.name());
   }
 
@@ -139,7 +139,7 @@ public record PatternSpecialDrawable(TextContext textContext, RectanglePattern r
   }
 
   @Override
-  public @NotNull MutableText asStyledText() {
-    return SpecialDrawable.super.asStyledText().styled(style -> style.withColor(textContext.color));
+  public @NotNull MutableComponent asStyledText() {
+    return SpecialDrawable.super.asStyledText().withStyle(style -> style.withColor(textContext.color));
   }
 }

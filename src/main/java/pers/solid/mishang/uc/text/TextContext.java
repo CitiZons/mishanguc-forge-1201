@@ -4,22 +4,22 @@ import com.google.gson.JsonParseException;
 import com.mojang.serialization.Codec;
 import it.unimi.dsi.fastutil.chars.Char2CharArrayMap;
 import it.unimi.dsi.fastutil.chars.Char2CharMap;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.nbt.AbstractNbtNumber;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.text.LiteralTextContent;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.MathHelper;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.MultiBufferSource;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.nbt.NumericTag;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.network.chat.contents.LiteralContents;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import net.minecraft.Util;
+import net.minecraft.util.Mth;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -37,7 +37,7 @@ import java.util.Collection;
  * 对 {@link net.minecraft.text.Text} 的简单包装与扩展，允许设置对齐属性、尺寸等参数，以便渲染时使用。同时还提供对象与 NBT、JSON 之间的转换。
  */
 public class TextContext implements Cloneable {
-  public static final Codec<TextContext> CODEC = NbtCompound.CODEC.xmap(TextContext::fromNbt, TextContext::createNbt);
+  public static final Codec<TextContext> CODEC = CompoundTag.CODEC.xmap(TextContext::fromNbt, TextContext::createNbt);
 
   /**
    * 用于 {@link #flip()} 方法中，左右替换字符串。
@@ -58,10 +58,10 @@ public class TextContext implements Cloneable {
    * 文本内容。该字段对应 NBT 中的两种情况：<br>
    * <ul>
    *   <li>若 NBT 中存在字段 “textJson”，则将其作为原始 JSON 文本进行解析。</li>
-   *   <li>否则，直接使用 NBT 字段 “text”，并直接将其作为原始文本（{@link net.minecraft.text.LiteralTextContent}）使用。</li>
+   *   <li>否则，直接使用 NBT 字段 “text”，并直接将其作为原始文本（{@link net.minecraft.text.LiteralContents}）使用。</li>
    * </ul>
    */
-  public @Nullable MutableText text;
+  public @Nullable MutableComponent text;
   /**
    * 水平对齐方式。若为 null 则取默认值。
    */
@@ -110,23 +110,23 @@ public class TextContext implements Cloneable {
   public float scaleX = 1;
   public float scaleY = 1;
   /**
-   * @see net.minecraft.util.Formatting#BOLD
+   * @see net.minecraft.util.ChatFormatting#BOLD
    */
   public boolean bold = false;
   /**
-   * @see net.minecraft.util.Formatting#ITALIC
+   * @see net.minecraft.util.ChatFormatting#ITALIC
    */
   public boolean italic = false;
   /**
-   * @see net.minecraft.util.Formatting#UNDERLINE
+   * @see net.minecraft.util.ChatFormatting#UNDERLINE
    */
   public boolean underline = false;
   /**
-   * @see net.minecraft.util.Formatting#STRIKETHROUGH
+   * @see net.minecraft.util.ChatFormatting#STRIKETHROUGH
    */
   public boolean strikethrough = false;
   /**
-   * @see net.minecraft.util.Formatting#OBFUSCATED
+   * @see net.minecraft.util.ChatFormatting#OBFUSCATED
    */
   public boolean obfuscated = false;
   /**
@@ -164,13 +164,13 @@ public class TextContext implements Cloneable {
    * 该字段用来检测 {@link #text} 字段是否发生改变。如果发生改变了，则该字段与 {@link #text} 将会不相等，此时将会调用 {@link #reformatText()} 重新生成 {@link #formattedText}，同时将此字段更新为 {@link #text} 的值。
    */
   @ApiStatus.AvailableSince("0.2.1")
-  private transient Text cachedText = null;
+  private transient Component cachedText = null;
   /**
    * <p>将 {@link #text} 应用 {@link #bold} 等格式后的文本对象。注意：上述格式并不会直接写入 {@link #text} 对象中。
    * <p>渲染时，会直接使用此对象，而不直接使用 {@link #text} 对象。在每帧渲染时，如果 {@link #text} 或 {@link #bold} 等字段发生改变了，则会调用 {@link #reformatText()} 重新生成此字段的值。请注意：并不是每一帧都这么做，否则将会消耗大量内存。
    */
   @ApiStatus.AvailableSince("0.2.1")
-  private transient MutableText formattedText = null;
+  private transient MutableComponent formattedText = null;
 
   /**
    * 从一个 NBT 元素创建一个新的 TextContext 对象，并使用默认值。
@@ -178,7 +178,7 @@ public class TextContext implements Cloneable {
    * @param nbt NBT 复合标签或者字符串。
    * @return 新的 TextContext 对象。
    */
-  public static @NotNull TextContext fromNbt(NbtElement nbt) {
+  public static @NotNull TextContext fromNbt(Tag nbt) {
     return fromNbt(nbt, new TextContext());
   }
 
@@ -190,16 +190,16 @@ public class TextContext implements Cloneable {
    * @return 新的 TextContext 对象。
    */
   @Contract(value = "_, _ -> param2", mutates = "param2")
-  public static @NotNull TextContext fromNbt(NbtElement nbt, TextContext defaults) {
-    if (nbt instanceof NbtString || nbt instanceof AbstractNbtNumber) {
-      defaults.text = TextBridge.literal(nbt.asString());
-    } else if (nbt instanceof NbtCompound nbtCompound) {
-      defaults.readNbt(nbtCompound);
+  public static @NotNull TextContext fromNbt(Tag nbt, TextContext defaults) {
+    if (nbt instanceof StringTag || nbt instanceof NumericTag) {
+      defaults.text = TextBridge.literal(nbt.getAsString());
+    } else if (nbt instanceof CompoundTag nbtCompound) {
+      defaults.load(nbtCompound);
     }
     return defaults;
   }
 
-  private static void putBooleanParam(NbtCompound nbt, String name, boolean value) {
+  private static void putBooleanParam(CompoundTag nbt, String name, boolean value) {
     if (value) {
       nbt.putBoolean(name, true);
     } else {
@@ -213,17 +213,17 @@ public class TextContext implements Cloneable {
    * @param nbt NBT 复合标签。
    */
   @Contract(mutates = "this")
-  public void readNbt(@NotNull NbtCompound nbt) {
-    final @Nullable NbtElement nbtText = nbt.get("text");
+  public void load(@NotNull CompoundTag nbt) {
+    final @Nullable Tag nbtText = nbt.get("text");
     final String textJson = nbt.getString("textJson");
     if (!textJson.isEmpty()) {
       try {
-        text = Text.Serializer.fromLenientJson(textJson);
+        text = Component.Serializer.fromJsonLenient(textJson);
       } catch (JsonParseException e) {
-        text = TextBridge.translatable("message.mishanguc.invalid_json").formatted(Formatting.RED);
+        text = TextBridge.translatable("message.mishanguc.invalid_json").withStyle(ChatFormatting.RED);
       }
-    } else if (nbtText instanceof NbtString) {
-      text = TextBridge.literal(nbtText.asString());
+    } else if (nbtText instanceof StringTag) {
+      text = TextBridge.literal(nbtText.getAsString());
     } else {
       text = null;
     }
@@ -240,7 +240,7 @@ public class TextContext implements Cloneable {
     }
     final OutlineColorType outlineColorType;
     if (nbt.contains("outlineColorType")) {
-      outlineColorType = OutlineColorType.CODEC.byId(nbt.getString("outlineColorType"));
+      outlineColorType = OutlineColorType.byId(nbt.getString("outlineColorType"));
     } else {
       outlineColorType = null;
     }
@@ -276,35 +276,35 @@ public class TextContext implements Cloneable {
     obfuscated = nbt.getBoolean("obfuscated");
     absolute = nbt.getBoolean("absolute");
 
-    extra = nbt.contains("extra", NbtElement.COMPOUND_TYPE) ? SpecialDrawable.fromNbt(this, nbt.getCompound("extra")) : null;
+    extra = nbt.contains("extra", Tag.TAG_COMPOUND) ? SpecialDrawable.fromNbt(this, nbt.getCompound("extra")) : null;
   }
 
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   @Contract(pure = true)
-  public void draw(TextRenderer textRenderer, MatrixStack matrixStack, VertexConsumerProvider vertexConsumers, int light, float width, float height) {
+  public void draw(Font font, PoseStack matrixStack, MultiBufferSource vertexConsumers, int light, float width, float height) {
     if (text == null && extra == null) {
       return;
     }
     if (!Arrays.equals(cachedStyles, new boolean[]{bold, italic, underline, strikethrough, obfuscated}) || text != cachedText) {
       reformatText();
     }
-    final OrderedText orderedText = formattedText == null ? null : formattedText.asOrderedText();
+    final FormattedCharSequence orderedText = formattedText == null ? null : formattedText.getVisualOrderText();
 
-    matrixStack.push();
+    matrixStack.pushPose();
 
     // 处理文本的偏移
     matrixStack.translate(offsetX, offsetY, offsetZ);
     // 处理文本的旋转
     if (rotationX != 0 || rotationY != 0 || rotationZ != 0) {
-      matrixStack.multiply(new Quaternionf().rotateXYZ(MathHelper.RADIANS_PER_DEGREE * rotationX, MathHelper.RADIANS_PER_DEGREE * rotationY, MathHelper.RADIANS_PER_DEGREE * rotationZ));
+      matrixStack.mulPose(new Quaternionf().rotateXYZ(Mth.DEG_TO_RAD * rotationX, Mth.DEG_TO_RAD * rotationY, Mth.DEG_TO_RAD * rotationZ));
     }
 
     // 处理文本在 x 和 y 方向的对齐
     float x = 0;
     switch (horizontalAlign == null ? HorizontalAlign.CENTER : horizontalAlign) {
       case LEFT -> matrixStack.translate(-width / 2, 0, 0);
-      case CENTER -> matrixStack.translate(-getWidth(textRenderer, orderedText) / 4, 0, 0);
-      case RIGHT -> matrixStack.translate(width / 2 - getWidth(textRenderer, orderedText) / 2, 0, 0);
+      case CENTER -> matrixStack.translate(-getWidth(font, orderedText) / 4, 0, 0);
+      case RIGHT -> matrixStack.translate(width / 2 - getWidth(font, orderedText) / 2, 0, 0);
       default -> throw new IllegalStateException("Unexpected value: " + horizontalAlign);
     }
     float y = 0;
@@ -321,12 +321,12 @@ public class TextContext implements Cloneable {
 
     // 执行渲染
     if (orderedText != null) {
-      drawText(textRenderer, matrixStack, vertexConsumers, light, orderedText, x, y);
+      drawText(font, matrixStack, vertexConsumers, light, orderedText, x, y);
     }
     if (extra != null) {
-      extra.drawExtra(textRenderer, matrixStack, vertexConsumers, light, x, y);
+      extra.drawExtra(font, matrixStack, vertexConsumers, light, x, y);
     }
-    matrixStack.pop();
+    matrixStack.popPose();
   }
 
   /**
@@ -334,7 +334,7 @@ public class TextContext implements Cloneable {
    * 此前的版本的做法是，每渲染一次都产生一次 formattedText，这种做法有非常大的问题，因为每一帧都要产生对象，并将文本 order 一次。事实上，如果文本或者样式没有改变，那么 formattedText 就不需要更换，其 orderedText 也可以直接使用。<p>
    * 此方法只会在渲染（{@link #draw}）时调用，并且不会每一帧都调用。
    */
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   @ApiStatus.AvailableSince("0.2.1")
   private void reformatText() {
     if (text == null) {
@@ -346,19 +346,19 @@ public class TextContext implements Cloneable {
     formattedText = text.copy();
 
     if (bold) {
-      formattedText.formatted(Formatting.BOLD);
+      formattedText.withStyle(ChatFormatting.BOLD);
     }
     if (italic) {
-      formattedText.formatted(Formatting.ITALIC);
+      formattedText.withStyle(ChatFormatting.ITALIC);
     }
     if (underline) {
-      formattedText.formatted(Formatting.UNDERLINE);
+      formattedText.withStyle(ChatFormatting.UNDERLINE);
     }
     if (strikethrough) {
-      formattedText.formatted(Formatting.STRIKETHROUGH);
+      formattedText.withStyle(ChatFormatting.STRIKETHROUGH);
     }
     if (obfuscated) {
-      formattedText.formatted(Formatting.OBFUSCATED);
+      formattedText.withStyle(ChatFormatting.OBFUSCATED);
     }
     cachedStyles = new boolean[]{bold, italic, underline, strikethrough, obfuscated};
   }
@@ -366,8 +366,8 @@ public class TextContext implements Cloneable {
   /**
    * 获取文本宽度，如果存在 extra 字段，则还需要考虑该对象的宽度。
    */
-  private float getWidth(TextRenderer textRenderer, @Nullable OrderedText text) {
-    final float width = text == null ? 0 : textRenderer.getWidth(text) * size / 8 * scaleX;
+  private float getWidth(Font font, @Nullable FormattedCharSequence text) {
+    final float width = text == null ? 0 : font.width(text) * size / 8 * scaleX;
     return extra != null ? Math.max(width, extra.width() * size * scaleX) : width;
   }
 
@@ -379,13 +379,13 @@ public class TextContext implements Cloneable {
     return extra != null ? 0 : size / 8f;
   }
 
-  @Environment(EnvType.CLIENT)
+  @OnlyIn(Dist.CLIENT)
   @Contract(pure = true)
-  protected void drawText(TextRenderer textRenderer, MatrixStack matrixStack, VertexConsumerProvider vertexConsumers, int light, OrderedText text, float x, float y) {
+  protected void drawText(Font font, PoseStack matrixStack, MultiBufferSource vertexConsumers, int light, FormattedCharSequence text, float x, float y) {
     if (outlineColorType == OutlineColorType.NONE) {
-      textRenderer.draw(text, x, y, color, shadow, matrixStack.peek().getPositionMatrix(), vertexConsumers, seeThrough ? TextRenderer.TextLayerType.SEE_THROUGH : TextRenderer.TextLayerType.NORMAL, 0, light);
+      font.drawInBatch(text, x, y, color, shadow, matrixStack.last().pose(), vertexConsumers, seeThrough ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL, 0, light);
     } else {
-      textRenderer.drawWithOutline(text, x, y, color, outlineColorType == OutlineColorType.AUTO ? MishangUtils.toSignOutlineColor(color) : outlineColor, matrixStack.peek().getPositionMatrix(), vertexConsumers, light);
+      font.drawInBatch8xOutline(text, x, y, color, outlineColorType == OutlineColorType.AUTO ? MishangUtils.toSignOutlineColor(color) : outlineColor, matrixStack.last().pose(), vertexConsumers, light);
     }
   }
 
@@ -393,31 +393,31 @@ public class TextContext implements Cloneable {
    * 将文本的数据写入 NBT 中。
    *
    * @param nbt 一个待写入的 NBT 复合标签，可以是空的 NBT 复合标签：
-   *            <pre>{@code  new NbtCompound()}</pre>
+   *            <pre>{@code  new CompoundTag()}</pre>
    */
   @Contract(mutates = "param1")
-  public void writeNbt(@NotNull NbtCompound nbt) {
+  public void saveAdditional(@NotNull CompoundTag nbt) {
     if (text != null) {
-      if (text.getContent() instanceof LiteralTextContent literalTextContent && text.getSiblings().isEmpty() && text.getStyle().isEmpty()) {
-        nbt.putString("text", literalTextContent.string());
+      if (text.getContents() instanceof LiteralContents literalComponentContents && text.getSiblings().isEmpty() && text.getStyle().isEmpty()) {
+        nbt.putString("text", literalComponentContents.text());
       } else {
-        nbt.putString("textJson", Text.Serializer.toJson(text));
+        nbt.putString("textJson", Component.Serializer.toJson(text));
       }
     } else {
       nbt.remove("text");
     }
     if (horizontalAlign != HorizontalAlign.CENTER) {
-      nbt.putString("horizontalAlign", horizontalAlign.asString());
+      nbt.putString("horizontalAlign", horizontalAlign.getSerializedName());
     } else {
       nbt.remove("horizontalAlign");
     }
     if (verticalAlign != VerticalAlign.MIDDLE) {
-      nbt.putString("verticalAlign", verticalAlign.asString());
+      nbt.putString("verticalAlign", verticalAlign.getSerializedName());
     } else {
       nbt.remove("verticalAlign");
     }
     nbt.putInt("color", color);
-    nbt.putString("outlineColorType", outlineColorType.asString());
+    nbt.putString("outlineColorType", outlineColorType.getSerializedName());
     nbt.putInt("outlineColor", outlineColor);
     putBooleanParam(nbt, "shadow", shadow);
     putBooleanParam(nbt, "seeThrough", seeThrough);
@@ -468,9 +468,9 @@ public class TextContext implements Cloneable {
   }
 
   @Contract("-> new")
-  public final NbtCompound createNbt() {
-    final NbtCompound nbtCompound = new NbtCompound();
-    writeNbt(nbtCompound);
+  public final CompoundTag createNbt() {
+    final CompoundTag nbtCompound = new CompoundTag();
+    saveAdditional(nbtCompound);
     return nbtCompound;
   }
 
@@ -485,15 +485,15 @@ public class TextContext implements Cloneable {
     }
   }
 
-  public @NotNull MutableText asStyledText() {
-    final MutableText text = this.text == null ? TextBridge.empty() : this.text.copy();
-    if (bold) text.formatted(Formatting.BOLD);
-    if (italic) text.formatted(Formatting.ITALIC);
-    if (underline) text.formatted(Formatting.UNDERLINE);
-    if (strikethrough) text.formatted(Formatting.STRIKETHROUGH);
-    if (obfuscated) text.formatted(Formatting.OBFUSCATED);
+  public @NotNull MutableComponent asStyledText() {
+    final MutableComponent text = this.text == null ? TextBridge.empty() : this.text.copy();
+    if (bold) text.withStyle(ChatFormatting.BOLD);
+    if (italic) text.withStyle(ChatFormatting.ITALIC);
+    if (underline) text.withStyle(ChatFormatting.UNDERLINE);
+    if (strikethrough) text.withStyle(ChatFormatting.STRIKETHROUGH);
+    if (obfuscated) text.withStyle(ChatFormatting.OBFUSCATED);
     if (text.getStyle().getColor() == null) {
-      text.styled(style -> style.withColor(color));
+      text.withStyle(style -> style.withColor(color));
     }
     if (extra != null) {
       return extra.asStyledText();
@@ -505,8 +505,8 @@ public class TextContext implements Cloneable {
   public TextContext flip() {
     offsetX = -offsetX;
     horizontalAlign = horizontalAlign.flip();
-    if (text != null && text.getContent() instanceof final LiteralTextContent literalTextContent) {
-      final String rawString = literalTextContent.string();
+    if (text != null && text.getContents() instanceof final LiteralContents literalComponentContents) {
+      final String rawString = literalComponentContents.text();
       final StringBuilder stringBuilder = new StringBuilder(rawString);
       for (int i = 0; i < stringBuilder.length(); i++) {
         final char c = stringBuilder.charAt(i);
