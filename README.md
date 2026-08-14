@@ -1,4 +1,4 @@
-# 迷上城建模组
+# 迷上城建模组 Forge Port for 1.20.1
 
 迷上城建（Mishang Urban Construction）是一个建筑与装饰类的模组，提供了一系列有用的方块，例如：
 
@@ -19,16 +19,10 @@
 - 旋转工具和镜像工具：点击方块即可将其旋转或翻转。
 - ……
 
-本模组的详细内容请参见 [GitHub](https://github.com/SolidBlock-cn/mishanguc/wiki) 或 [MC模组百科](https://www.mcmod.cn/class/5743.html)。
-
-本模组**依赖 Fabric API**。自模组版本 1.4.0 开始，**不再**依赖[更好的运行时资源包](https://github.com/SolidBlock-cn/BRRP)（Better Runtime Resource Pack）模组。
+原 Fabric 模组的详细内容请参见 [GitHub](https://github.com/SolidBlock-cn/mishanguc/wiki) 或 [MC模组百科](https://www.mcmod.cn/class/5743.html)。
 
 请参见[更新记录](UpdateLog.md)。
-
-本模组只有 Fabric 版本，没有 Forge 版本。
 
 本模组是按照 LGPLv3 协议发布的，传播本模组时须遵守本协议。
 
 欢迎加入QQ群 **587928350** 进行交流。你也可以在 GitHub 中报告问题。
-
-Users using English may read [the English version](README-en.md).
