@@ -42,7 +42,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.resources.ResourceLocation;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionResultHolder;
 import pers.solid.mishang.uc.data.stubs.WorldRenderContext;
 
@@ -178,7 +177,7 @@ public class IdCheckerToolItem extends BlockToolItem implements InteractsWithEnt
 
   @OnlyIn(Dist.CLIENT)
   @Override
-  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, LocalPlayer player, InteractionHand hand) {
+  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, Player player, InteractionHand hand) {
     if (hitResult instanceof EntityHitResult entityHitResult && !player.isSpectator()) {
       final Entity entity = entityHitResult.getEntity();
       final PoseStack matrices = context.matrixStack();

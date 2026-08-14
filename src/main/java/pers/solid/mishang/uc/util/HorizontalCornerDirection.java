@@ -1,7 +1,5 @@
 package pers.solid.mishang.uc.util;
 
-import net.minecraft.client.Minecraft;
-
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.util.StringRepresentable;

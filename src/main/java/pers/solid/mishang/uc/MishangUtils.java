@@ -1,7 +1,5 @@
 package pers.solid.mishang.uc;
 
-import net.minecraft.client.Minecraft;
-
 import net.minecraft.nbt.Tag;
 
 import com.google.common.base.Functions;

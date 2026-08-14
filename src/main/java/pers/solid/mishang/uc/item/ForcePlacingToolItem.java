@@ -42,7 +42,6 @@ import pers.solid.mishang.uc.util.TextBridge;
 
 import java.util.List;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.player.LocalPlayer;
 import pers.solid.mishang.uc.data.stubs.WorldRenderContext;
 
 public class ForcePlacingToolItem extends BlockToolItem implements InteractsWithEntity, RendersBeforeOutline {
@@ -259,7 +258,7 @@ public class ForcePlacingToolItem extends BlockToolItem implements InteractsWith
 
   @OnlyIn(Dist.CLIENT)
   @Override
-  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, LocalPlayer player, InteractionHand hand) {
+  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, Player player, InteractionHand hand) {
     // 只在使用主手持有此物品时进行渲染。
     if (hand != InteractionHand.MAIN_HAND || !hasAccess(player, context.world(), false)) return;
     final PoseStack matrices = context.matrixStack();

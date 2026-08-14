@@ -47,7 +47,11 @@ public class ColumnBuildingTool extends BlockToolItem implements HotbarScrollInt
    * 记录放置柱的操作记录。当玩家放置了柱之后，可以对其进行撤销，其操作记录就是存储在这个里面的。
    */
   private static final WeakHashMap<ServerPlayer, Triple<ServerLevel, Block, BoundingBox>> tempMemory = new WeakHashMap<>();
-  private static @Nullable Triple<ClientLevel, Block, BoundingBox> clientTempMemory = null;
+  /**
+   * 客户端的操作记录。类型使用 {@link Level} 而非 {@code ClientLevel}，以免专用服务器加载本类时接触客户端专有的类；
+   * 该字段只会在客户端被赋值，实际存储的是 {@code ClientLevel}。
+   */
+  private static @Nullable Triple<Level, Block, BoundingBox> clientTempMemory = null;
 
   // TODO: Re-register with Forge events (PlayerEvent.PlayerLoggedOutEvent)
   public static void registerTempMemoryEvents() {
@@ -112,7 +116,7 @@ public class ColumnBuildingTool extends BlockToolItem implements HotbarScrollInt
       if (!world.isClientSide) {
         tempMemory.put(((ServerPlayer) player), Triple.of(((ServerLevel) world), blockPlacementContext.stateToPlace.getBlock(), BoundingBox.fromCorners(blockPlacementContext.posToPlace, posToPlace.immutable())));
       } else if (FMLEnvironment.dist == Dist.CLIENT) {
-        clientTempMemory = Triple.of(((ClientLevel) world), blockPlacementContext.stateToPlace.getBlock(), BoundingBox.fromCorners(blockPlacementContext.posToPlace, posToPlace.immutable()));
+        clientTempMemory = Triple.of(world, blockPlacementContext.stateToPlace.getBlock(), BoundingBox.fromCorners(blockPlacementContext.posToPlace, posToPlace.immutable()));
       }
     }
     return InteractionResult.SUCCESS;

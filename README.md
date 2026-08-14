@@ -21,6 +21,15 @@
 
 原 Fabric 模组的详细内容请参见 [GitHub](https://github.com/SolidBlock-cn/mishanguc/wiki) 或 [MC模组百科](https://www.mcmod.cn/class/5743.html)。
 
+## 构建与安装
+
+运行 `./gradlew build` 构建模组，产物在 `build/libs/` 目录下：
+
+- **`mishanguc-<版本>-all.jar`** — 分发用的完整 jar，内嵌了 MixinExtras 依赖。**安装到 Forge 客户端或服务端时使用这个。**
+- `mishanguc-<版本>.jar` — 不含内嵌依赖的普通 jar，仅用于开发调试或 Maven 发布，一般不需要。
+
+安装方法：将 `-all.jar` 放入 Forge 1.20.1 实例的 `mods/` 文件夹即可。
+
 请参见[更新记录](UpdateLog.md)。
 
 本模组是按照 LGPLv3 协议发布的，传播本模组时须遵守本协议。

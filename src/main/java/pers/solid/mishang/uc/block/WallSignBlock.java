@@ -1,7 +1,5 @@
 package pers.solid.mishang.uc.block;
 
-import net.minecraft.client.Minecraft;
-
 import pers.solid.mishang.uc.data.stubs.FabricRecipeProvider;
 
 import com.google.common.collect.ImmutableMap;

@@ -59,7 +59,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.resources.ResourceLocation;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionResultHolder;
 import pers.solid.mishang.uc.data.stubs.WorldRenderContext;
 
@@ -481,7 +480,7 @@ public class CarryingToolItem extends BlockToolItem
 
   @OnlyIn(Dist.CLIENT)
   @Override
-  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, LocalPlayer player, InteractionHand hand) {
+  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, Player player, InteractionHand hand) {
     // 只在使用主手且有权限时持有此物品时进行渲染。
     if (hand != InteractionHand.MAIN_HAND || player.isSpectator() || !hasAccess(player, context.world(), true))
       return;

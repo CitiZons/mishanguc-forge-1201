@@ -48,7 +48,6 @@ import pers.solid.mishang.uc.util.TextBridge;
 
 import java.util.List;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.player.LocalPlayer;
 import pers.solid.mishang.uc.data.stubs.WorldRenderContext;
 import pers.solid.mishang.uc.data.stubs.PacketSender;
 
@@ -137,7 +136,7 @@ public class DataTagToolItem extends BlockToolItem implements InteractsWithEntit
 
   @OnlyIn(Dist.CLIENT)
   @Override
-  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, LocalPlayer player, InteractionHand hand) {
+  public void renderBeforeOutline(WorldRenderContext context, HitResult hitResult, Player player, InteractionHand hand) {
     if (hitResult instanceof EntityHitResult entityHitResult && !player.isSpectator()) {
       final Entity entity = entityHitResult.getEntity();
       final PoseStack matrices = context.matrixStack();
