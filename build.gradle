@@ -13,7 +13,7 @@ plugins {
 import net.darkhax.curseforgegradle.TaskPublishCurseForge
 
 base {
-    archivesName = project.archives_base_name
+    archivesName = 'mishanguc-forge'
 }
 version = project.mod_version + '-' + project.minecraft_version
 group = project.maven_group
